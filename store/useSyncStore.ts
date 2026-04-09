@@ -12,6 +12,7 @@ interface SyncStore {
     items: SyncItem[];
     addItem: (item: SyncItem) => void;
     syncItems: () => void;
+    markItemAsSynced: (id: string) => void;
 }
 
 // Global placeholder state for our generic module flow
@@ -48,5 +49,11 @@ export const useSyncStore = create<SyncStore>((set) => ({
     syncItems: () =>
         set((state) => ({
             items: state.items.map((item) => ({ ...item, sync_status: 1 })),
+        })),
+    markItemAsSynced: (id: string) =>
+        set((state) => ({
+            items: state.items.map((item) =>
+                item.id === id ? { ...item, sync_status: 1 } : item
+            ),
         })),
 }));
