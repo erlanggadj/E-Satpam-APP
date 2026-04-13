@@ -1,7 +1,7 @@
 import { useAuthStore } from '@/store/useAuthStore';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useRouter } from 'expo-router';
-import { ArrowLeft, BadgeInfo, Calendar, CheckCircle, ChevronDown, IdCard, Send } from 'lucide-react-native';
+import { ArrowLeft, BadgeInfo, Calendar, CheckCircle, ChevronDown, IdCard, Plus, Send, Trash2 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -63,15 +63,22 @@ export default function CreateMutasiScreen() {
     const [shift, setShift] = useState('Shift 1');
 
     const [petugas, setPetugas] = useState([
-        { id: 1, nama: '', keterangan: 'Hadir', jabatan: 'Kashift' },
-        { id: 2, nama: '', keterangan: 'Hadir', jabatan: 'Anggota' },
-        { id: 3, nama: '', keterangan: 'Hadir', jabatan: 'Anggota' },
+        { id: 1, nama: '', keterangan: 'Hadir', jabatan: 'Kashift' }
     ]);
 
     const updatePetugas = (index: number, field: string, value: string) => {
         const newPetugas = [...petugas];
         newPetugas[index] = { ...newPetugas[index], [field]: value };
         setPetugas(newPetugas);
+    };
+
+    const handleAddPetugas = () => {
+        const newId = petugas.length > 0 ? Math.max(...petugas.map(p => p.id)) + 1 : 1;
+        setPetugas([...petugas, { id: newId, nama: '', keterangan: 'Hadir', jabatan: 'Anggota' }]);
+    };
+
+    const handleRemovePetugas = (idToRemove: number) => {
+        setPetugas(petugas.filter(p => p.id !== idToRemove));
     };
 
     const handleSimpan = () => {
@@ -174,9 +181,19 @@ export default function CreateMutasiScreen() {
                     {/* PETUGAS CARDS */}
                     {petugas.map((p, index) => (
                         <View key={p.id} className="bg-white rounded-2xl p-5 mb-5 shadow-sm border border-slate-100">
-                            <View className="flex-row items-center mb-5">
-                                <IdCard size={18} color="#ea580c" style={{ marginRight: 8 }} />
-                                <Text className="font-bold text-slate-800 text-[15px]">Identitas Petugas {index + 1}</Text>
+                            <View className="flex-row justify-between items-center mb-5">
+                                <View className="flex-row items-center">
+                                    <IdCard size={18} color="#ea580c" style={{ marginRight: 8 }} />
+                                    <Text className="font-bold text-slate-800 text-[15px]">Identitas Petugas {index + 1}</Text>
+                                </View>
+                                {index > 0 && (
+                                    <TouchableOpacity
+                                        onPress={() => handleRemovePetugas(p.id)}
+                                        className="p-1.5 bg-red-50 rounded-lg active:bg-red-100"
+                                    >
+                                        <Trash2 size={16} color="#ef4444" />
+                                    </TouchableOpacity>
+                                )}
                             </View>
 
                             <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Nama</Text>
@@ -211,6 +228,16 @@ export default function CreateMutasiScreen() {
                             </View>
                         </View>
                     ))}
+
+                    {/* ADD MEMBER BUTTON */}
+                    <TouchableOpacity
+                        className="bg-orange-50 border border-orange-200 border-dashed py-4 rounded-xl flex-row items-center justify-center mb-8 active:bg-orange-100"
+                        onPress={handleAddPetugas}
+                        activeOpacity={0.7}
+                    >
+                        <Plus size={18} color="#ea580c" style={{ marginRight: 8 }} />
+                        <Text className="text-orange-600 font-bold text-[14px]">Tambah Anggota Petugas</Text>
+                    </TouchableOpacity>
 
                     {/* SUBMIT BUTTON */}
                     <TouchableOpacity
