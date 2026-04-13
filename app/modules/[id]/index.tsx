@@ -1,6 +1,5 @@
 import { ContainerCard } from '@/components/features/ContainerCard';
 import { GenericModuleCard } from '@/components/features/GenericModuleCard';
-import { KeyLogCard } from '@/components/features/KeyLogCard';
 import { Button } from '@/components/ui/Button';
 import { Text } from '@/components/ui/Text';
 import { useModuleStore } from '@/store/useModuleStore';
@@ -20,36 +19,23 @@ export default function ModuleHistoryScreen() {
     const genericItems = allItems.filter((i) => i.moduleId === id);
 
     // Custom Module State
-    const { containers, keys } = useModuleStore();
+    const { containers } = useModuleStore();
     const [activeTab, setActiveTab] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
 
     const title = id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Module';
-
-    const handlePressTakeKey = useCallback((itemId: string) => {
-        router.push(`/modules/keylog/${itemId}/checkout`);
-    }, [router]);
-
-    const renderKeyLogItem = useCallback(({ item }: { item: any }) => (
-        <KeyLogCard keyRecord={item} onAfterTake={() => setActiveTab('HISTORY')} />
-    ), [setActiveTab]);
 
     const renderContainerItem = useCallback(({ item }: { item: any }) => (
         <ContainerCard container={item} />
     ), []);
 
-    // --- RENDER CUSTOM MODULE TABS AND LISTS --- //
     const renderCustomModuleContent = () => {
         let listData: any[] = [];
-        let renderItem = id === 'container' ? renderContainerItem : renderKeyLogItem;
+        let renderItem = renderContainerItem;
 
         if (id === 'container') {
             listData = activeTab === 'ACTIVE'
                 ? containers.filter(c => c.status === 'IN')
                 : containers.filter(c => c.status === 'OUT');
-        } else if (id === 'keylog') {
-            listData = activeTab === 'ACTIVE'
-                ? keys.filter(k => k.status === 'DEPOSITED')
-                : keys.filter(k => k.status === 'TAKEN');
         }
 
         return (
@@ -152,7 +138,7 @@ export default function ModuleHistoryScreen() {
         );
     };
 
-    const isCustomModule = id === 'container' || id === 'keylog';
+    const isCustomModule = id === 'container';
 
     return (
         <SafeAreaView className="flex-1 bg-background" edges={['top']}>

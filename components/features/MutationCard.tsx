@@ -51,8 +51,8 @@ export function MutationCard({ mutation, onAfterSubmit }: MutationCardProps) {
                 >
                     <View className="flex-row items-start justify-between mb-3">
                         <View className="flex-row items-center flex-1">
-                            <View className="w-10 h-10 rounded-full bg-emerald-50 items-center justify-center mr-3">
-                                <ClipboardEdit size={20} color="#10b981" />
+                            <View className="w-10 h-10 rounded-full bg-orange-50 items-center justify-center mr-3">
+                                <ClipboardEdit size={20} color="#ea580c" />
                             </View>
                             <View className="flex-1 pr-4">
                                 <Text className="text-slate-800 text-[15px] font-bold" numberOfLines={1}>{mutation.posName}</Text>
@@ -74,12 +74,12 @@ export function MutationCard({ mutation, onAfterSubmit }: MutationCardProps) {
                 {isActive ? (
                     <View className="flex-row space-x-3 gap-3 border-t border-slate-100 pt-3 mt-1">
                         <TouchableOpacity
-                            className="flex-1 bg-white border border-emerald-500 py-2.5 rounded-xl flex-row items-center justify-center active:bg-emerald-50"
+                            className="flex-1 bg-white border border-orange-500 py-2.5 rounded-xl flex-row items-center justify-center active:bg-orange-50"
                             activeOpacity={0.7}
                             onPress={() => setModalVisible(true)}
                         >
-                            <Plus size={16} color="#10b981" style={{ marginRight: 6 }} />
-                            <Text className="text-emerald-500 font-bold text-[13px]">Add Activity</Text>
+                            <Plus size={16} color="#ea580c" style={{ marginRight: 6 }} />
+                            <Text className="text-orange-500 font-bold text-[13px]">Add Activity</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -134,7 +134,7 @@ export function MutationCard({ mutation, onAfterSubmit }: MutationCardProps) {
                         </View>
 
                         <TouchableOpacity
-                            className="bg-emerald-500 py-4 rounded-xl items-center shadow-sm"
+                            className="bg-orange-500 py-4 rounded-xl items-center shadow-sm"
                             onPress={handleAddActivity}
                             activeOpacity={0.8}
                         >

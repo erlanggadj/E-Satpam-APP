@@ -1,7 +1,8 @@
 import { useAuthStore } from '@/store/useAuthStore';
 import { useModuleStore } from '@/store/useModuleStore';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
-import { ArrowLeft, BadgeInfo, Calendar, CheckCircle, ChevronDown, IdCard, Plus, Send, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, BadgeInfo, Calendar, CheckCircle, ChevronDown, IdCard, Plus, Trash2 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -61,6 +62,19 @@ export default function CreateMutasiScreen() {
     const [lokasi, setLokasi] = useState('');
     const [date, setDate] = useState(new Date().toLocaleDateString('en-US')); // Bisa diganti ke library datetimepicker nanti
     const [shift, setShift] = useState('Shift 1');
+
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [dateObject, setDateObject] = useState(new Date());
+
+    const onChangeDate = (event: any, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            setShowDatePicker(false);
+        }
+        if (selectedDate) {
+            setDateObject(selectedDate);
+            setDate(selectedDate.toLocaleDateString('id-ID'));
+        }
+    };
 
     const [petugas, setPetugas] = useState([
         { id: 1, nama: '', keterangan: 'Hadir', jabatan: 'Kashift' }
@@ -156,15 +170,22 @@ export default function CreateMutasiScreen() {
 
                         <View className="flex-row justify-between mb-2">
                             <View className="flex-1 mr-3">
-                                <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Date (Input)</Text>
-                                <View className="border border-slate-200 rounded-xl px-4 py-3.5 flex-row items-center justify-between bg-white">
-                                    <TextInput
-                                        className="text-slate-700 text-[14px] flex-1"
-                                        value={date}
-                                        onChangeText={setDate}
-                                    />
+                                <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Date</Text>
+                                <TouchableOpacity
+                                    className="border border-slate-200 rounded-xl px-4 py-3.5 flex-row items-center justify-between bg-white active:bg-slate-50"
+                                    onPress={() => setShowDatePicker(true)}
+                                >
+                                    <Text className="text-slate-700 text-[14px] flex-1 font-medium">{date}</Text>
                                     <Calendar size={16} color="#475569" />
-                                </View>
+                                </TouchableOpacity>
+                                {showDatePicker && (
+                                    <DateTimePicker
+                                        value={dateObject}
+                                        mode="date"
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        onChange={onChangeDate}
+                                    />
+                                )}
                             </View>
                             <View className="flex-1">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Shift</Text>
@@ -245,8 +266,7 @@ export default function CreateMutasiScreen() {
                         onPress={handleSimpan}
                         activeOpacity={0.8}
                     >
-                        <Text className="text-white font-bold text-[15px] mr-2">Submit Mutasi</Text>
-                        <Send size={16} color="#ffffff" style={{ marginLeft: 4, transform: [{ rotate: '-45deg' }, { translateY: -4 }] }} />
+                        <Text className="text-white font-bold text-[15px] mr-2">Submit</Text>
                     </TouchableOpacity>
 
                 </ScrollView>

@@ -17,12 +17,14 @@ export interface ContainerRecord {
 export interface KeyRecord {
     id: string;
     keyName: string;
-    depositedBy: string;
+    depositorName: string;
+    depositorDivision: string;
     depositTime: string;
     status: KeyStatus;
-    takenBy?: string;
+    takerName?: string;
+    takerDivision?: string;
+    keterangan?: string;
     takeTime?: string;
-    division?: string;
 }
 
 export interface MutasiRecord {
@@ -57,7 +59,8 @@ interface ModuleState {
 
     // Key Log State
     keys: KeyRecord[];
-    takeKey: (id: string, takerName: string, division: string, takeTime: string) => void;
+    depositKey: (keyName: string, depositorName: string, depositorDivision: string) => void;
+    takeKey: (id: string, takerName: string, takerDivision: string, keterangan: string) => void;
 
     // Mutasi State
     mutations: MutasiRecord[];
@@ -103,26 +106,22 @@ const initialKeys: KeyRecord[] = [
     {
         id: 'key-1',
         keyName: 'Ruang Server IT',
-        depositedBy: 'Handoko (Staff IT)',
-        depositTime: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+        depositorName: 'Handoko',
+        depositorDivision: 'Staff IT',
+        depositTime: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
         status: 'DEPOSITED',
     },
     {
         id: 'key-2',
         keyName: 'Gudang Logistik C',
-        depositedBy: 'Bambang',
-        depositTime: new Date(Date.now() - 1000 * 60 * 180).toISOString(), // 3 hours ago
+        depositorName: 'Bambang',
+        depositorDivision: 'Gudang',
+        depositTime: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
         status: 'TAKEN',
-        takenBy: 'Mulyanto',
-        division: 'Logistik Area',
-        takeTime: new Date(Date.now() - 1000 * 60 * 50).toISOString(), // 50 mins ago
-    },
-    {
-        id: 'key-3',
-        keyName: 'Kunci Genset Utama',
-        depositedBy: 'Supriyadi (Maintenance)',
-        depositTime: new Date(Date.now() - 1000 * 60 * 12).toISOString(), // 12 mins ago
-        status: 'DEPOSITED',
+        takerName: 'Mulyanto',
+        takerDivision: 'Logistik Area',
+        keterangan: 'Pengecekan stok',
+        takeTime: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
     },
 ];
 
@@ -172,10 +171,22 @@ export const useModuleStore = create<ModuleState>((set) => ({
             ),
         })),
 
-    takeKey: (id, takerName, division, takeTime) =>
+    depositKey: (keyName, depositorName, depositorDivision) =>
+        set((state) => ({
+            keys: [{
+                id: `key-${Date.now()}`,
+                keyName,
+                depositorName,
+                depositorDivision,
+                depositTime: new Date().toISOString(),
+                status: 'DEPOSITED'
+            }, ...state.keys]
+        })),
+
+    takeKey: (id, takerName, takerDivision, keterangan) =>
         set((state) => ({
             keys: state.keys.map((k) =>
-                k.id === id ? { ...k, status: 'TAKEN', takenBy: takerName, division, takeTime } : k
+                k.id === id ? { ...k, status: 'TAKEN', takerName, takerDivision, keterangan, takeTime: new Date().toISOString() } : k
             ),
         })),
 
