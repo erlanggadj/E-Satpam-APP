@@ -61,7 +61,7 @@ export default function CreateMutasiScreen() {
     const [aktivitas, setAktivitas] = useState('POS JAGA');
     const [lokasi, setLokasi] = useState('');
     const [date, setDate] = useState(new Date().toLocaleDateString('en-US')); // Bisa diganti ke library datetimepicker nanti
-    const [shift, setShift] = useState('Shift 1');
+    const [shift, setShift] = useState('Pagi');
 
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [dateObject, setDateObject] = useState(new Date());
@@ -162,7 +162,7 @@ export default function CreateMutasiScreen() {
                         <View className="border border-slate-200 rounded-xl px-4 py-3 mb-4 bg-white">
                             <TextInput
                                 className="text-slate-800 text-[14px]"
-                                placeholder="Cth: Blok 1"
+                                placeholder="Contoh: POS 66"
                                 value={lokasi}
                                 onChangeText={setLokasi}
                             />
@@ -192,7 +192,7 @@ export default function CreateMutasiScreen() {
                                 <CustomDropdown
                                     label="Shift"
                                     value={shift}
-                                    options={['Shift 1', 'Shift 2', 'Shift 3']}
+                                    options={['Pagi', 'Sore', 'Malam']}
                                     onSelect={setShift}
                                 />
                             </View>

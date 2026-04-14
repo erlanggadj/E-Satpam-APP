@@ -17,16 +17,18 @@ export default function KeyLogIndexScreen() {
     );
 
     return (
-        <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
+        <View className="flex-1 bg-slate-50">
             <Stack.Screen options={{ headerShown: false }} />
 
             {/* Header */}
-            <View className="flex flex-row items-center p-5 border-b border-gray-100 bg-white shadow-sm z-10">
-                <TouchableOpacity onPress={() => router.back()} className="mr-4 p-2 -ml-2 rounded-full active:bg-gray-100">
-                    <ArrowLeft size={24} color="#1e293b" />
-                </TouchableOpacity>
-                <Text className="flex-1 text-[18px] font-bold text-slate-800 tracking-tight">Log Serah Terima Kunci</Text>
-            </View>
+            <SafeAreaView className="bg-white border-b border-gray-100 shadow-sm z-10" edges={['top']}>
+                <View className="flex flex-row items-center p-5 pt-2">
+                    <TouchableOpacity onPress={() => router.back()} className="mr-4 p-2 -ml-2 rounded-full active:bg-gray-100">
+                        <ArrowLeft size={24} color="#1e293b" />
+                    </TouchableOpacity>
+                    <Text className="flex-1 text-[18px] font-bold text-slate-800 tracking-tight">Log Serah Terima Kunci</Text>
+                </View>
+            </SafeAreaView>
 
             {/* TABS */}
             <View className="flex-row px-5 py-3 bg-white border-b border-slate-100 shadow-sm z-0">
@@ -79,6 +81,6 @@ export default function KeyLogIndexScreen() {
                     </Button>
                 </View>
             )}
-        </SafeAreaView>
+        </View>
     );
 }

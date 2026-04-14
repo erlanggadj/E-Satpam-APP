@@ -54,7 +54,7 @@ export default function HomeScreen() {
             <View className="bg-white/20 rounded-3xl pt-3 pb-3 pl-3 pr-4 flex-row items-center border border-white/30 shadow-lg">
               <View className="relative mr-4">
                 <Image
-                  source={{ uri: 'https://media.licdn.com/dms/image/v2/D5603AQF69Rf1kliLFQ/profile-displayphoto-shrink_400_400/B56Za_MrJHH0Ag-/0/1746964493447?e=1775088000&v=beta&t=mnwwuD3nWeLotsMWmv4ApUyUtglLDp9GKmxQCBx90Dc' }}
+                  source={{ uri: 'https://avatars.githubusercontent.com/u/83545747?s=96&v=4' }}
                   className="w-[52px] h-[52px] rounded-[18px] bg-gray-300"
                 />
                 <View className="absolute -bottom-0.5 -right-0.5 w-[14px] h-[14px] bg-[#10B981] rounded-full border-2 border-[#3f4b52]" />
