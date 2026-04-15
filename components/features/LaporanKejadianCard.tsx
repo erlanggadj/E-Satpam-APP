@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { AlertCircle, Calendar } from 'lucide-react-native';
-import React from 'react';
+import React, { useRef } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 export interface KejadianReport {
@@ -17,6 +17,14 @@ interface Props {
 
 export function LaporanKejadianCard({ item }: Props) {
     const router = useRouter();
+    const isNavigating = useRef(false);
+
+    const handlePress = () => {
+        if (isNavigating.current) return;
+        isNavigating.current = true;
+        router.push(`/modules/kejadian/${item.id}/detail` as any);
+        setTimeout(() => { isNavigating.current = false; }, 500);
+    };
 
     const isDone = item.status === 'SELESAI';
 
@@ -24,7 +32,7 @@ export function LaporanKejadianCard({ item }: Props) {
         <TouchableOpacity
             activeOpacity={0.7}
             className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4 flex-row"
-            onPress={() => router.push(`/modules/kejadian/${item.id}/detail` as any)}
+            onPress={handlePress}
         >
             <View className="mr-4 items-center">
                 <View className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center mb-1">

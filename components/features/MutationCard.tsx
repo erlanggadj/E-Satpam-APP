@@ -2,7 +2,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { MutasiRecord, useModuleStore } from '@/store/useModuleStore';
 import { useRouter } from 'expo-router';
 import { ClipboardEdit, Plus, Send, X } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface MutationCardProps {
@@ -15,6 +15,14 @@ export function MutationCard({ mutation, onAfterSubmit }: MutationCardProps) {
     const [modalVisible, setModalVisible] = useState(false);
     const [time, setTime] = useState(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
     const [description, setDescription] = useState('');
+    const isNavigating = useRef(false);
+
+    const handleDetailPress = () => {
+        if (isNavigating.current) return;
+        isNavigating.current = true;
+        router.push(`/modules/mutasi/${mutation.id}/detail`);
+        setTimeout(() => { isNavigating.current = false; }, 500);
+    };
 
     const addActivity = useModuleStore(state => state.addMutationActivity);
     const submitMutation = useModuleStore(state => state.submitMutation);
@@ -47,7 +55,7 @@ export function MutationCard({ mutation, onAfterSubmit }: MutationCardProps) {
             <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
                 <TouchableOpacity
                     activeOpacity={0.7}
-                    onPress={() => router.push(`/modules/mutasi/${mutation.id}/detail`)}
+                    onPress={handleDetailPress}
                 >
                     <View className="flex-row items-start justify-between mb-3">
                         <View className="flex-row items-center flex-1">
