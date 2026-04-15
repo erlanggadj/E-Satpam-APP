@@ -1,0 +1,104 @@
+import { IzinCard } from '@/components/features/IzinCard';
+import { Button } from '@/components/ui/Button';
+import { useModuleStore } from '@/store/useModuleStore';
+import { Stack, useRouter } from 'expo-router';
+import { ArrowLeft, Plus, Search, Users } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+export default function IzinIndexScreen() {
+    const router = useRouter();
+    const [activeTab, setActiveTab] = useState<'KELUAR' | 'SELESAI'>('KELUAR');
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const allIzins = useModuleStore((state) => state.izins);
+
+    // Filtering logic
+    const tabFiltered = allIzins.filter(i => activeTab === 'KELUAR' ? i.status === 'OUT' : i.status === 'RETURNED');
+    const displayedIzins = tabFiltered.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    return (
+        <View className="flex-1 bg-slate-50">
+            <Stack.Screen options={{ headerShown: false }} />
+
+            {/* Header */}
+            <SafeAreaView className="bg-white z-10" edges={['top']}>
+                <View className="flex flex-row items-center p-5 pt-2 border-b border-slate-100">
+                    <TouchableOpacity onPress={() => router.back()} className="mr-4 p-2 -ml-2 rounded-full active:bg-gray-100">
+                        <ArrowLeft size={24} color="#1e293b" />
+                    </TouchableOpacity>
+                    <Text className="flex-1 text-[18px] font-bold text-slate-800 tracking-tight">Izin Karyawan Keluar (GGF)</Text>
+                </View>
+            </SafeAreaView>
+
+            {/* TABS */}
+            <View className="flex-row px-5 py-3 bg-white">
+                <TouchableOpacity
+                    className={`flex-1 py-2.5 items-center mr-2 rounded-full ${activeTab === 'KELUAR' ? 'bg-[#0ea5e9]' : 'bg-slate-100'}`}
+                    activeOpacity={0.7}
+                    onPress={() => setActiveTab('KELUAR')}
+                >
+                    <Text className={`font-bold text-[13px] ${activeTab === 'KELUAR' ? 'text-white' : 'text-slate-500'}`}>Di Luar Area</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    className={`flex-1 py-2.5 items-center ml-2 rounded-full ${activeTab === 'SELESAI' ? 'bg-[#0ea5e9]' : 'bg-slate-100'}`}
+                    activeOpacity={0.7}
+                    onPress={() => setActiveTab('SELESAI')}
+                >
+                    <Text className={`font-bold text-[13px] ${activeTab === 'SELESAI' ? 'text-white' : 'text-slate-500'}`}>Selesai / Kembali</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* SEARCH BAR */}
+            <View className="px-5 py-2 bg-white border-b border-slate-200 shadow-sm z-0">
+                <View className="flex-row bg-slate-100 rounded-xl px-4 py-2.5 items-center border border-slate-200">
+                    <Search size={18} color="#94a3b8" />
+                    <TextInput
+                        className="flex-1 ml-3 text-slate-800 text-[14px]"
+                        placeholder="Cari nama karyawan..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholderTextColor="#94a3b8"
+                    />
+                </View>
+            </View>
+
+            <View className="flex-1">
+                <FlatList
+                    data={displayedIzins}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => <IzinCard izin={item} />}
+                    contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+                    ListEmptyComponent={() => (
+                        <View className="flex-1 justify-center items-center py-20 mt-10">
+                            <View className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                                <Users size={40} color="#9CA3AF" />
+                            </View>
+                            <Text className="text-xl font-bold text-gray-400 mb-2">Kosong</Text>
+                            <Text className="text-gray-400 text-center max-w-[250px] leading-relaxed">
+                                {searchQuery.length > 0
+                                    ? `Tidak ditemukan nama "${searchQuery}".`
+                                    : (activeTab === 'KELUAR' ? 'Semua karyawan terpantau berada di dalam area.' : 'Belum ada data history karyawan masuk hari ini.')}
+                            </Text>
+                        </View>
+                    )}
+                />
+            </View>
+
+            {/* Floating Action Button */}
+            {activeTab === 'KELUAR' && (
+                <View className="absolute bottom-6 right-6 shadow-xl">
+                    <Button
+                        variant="default"
+                        size="icon"
+                        className="w-16 h-16 rounded-full shadow-lg items-center justify-center bg-[#0ea5e9]"
+                        onPress={() => router.push(`/modules/izin/create`)}
+                    >
+                        <Plus size={32} color="white" />
+                    </Button>
+                </View>
+            )}
+        </View>
+    );
+}
