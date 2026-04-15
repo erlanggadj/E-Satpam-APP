@@ -1,4 +1,5 @@
 import { useSyncStore } from '@/store/useSyncStore';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
 import {
     AlertTriangle,
@@ -43,9 +44,32 @@ export default function LaporanKejadianCreateScreen() {
     const [kerugian, setKerugian] = useState('');
     const [tindakan, setTindakan] = useState('');
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [dateValue, setDateValue] = useState(new Date());
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showTimePicker, setShowTimePicker] = useState(false);
+
+    const onDateChange = (event: any, selectedDate?: Date) => {
+        setShowDatePicker(false);
+        if (selectedDate) {
+            setDateValue(selectedDate);
+            setTanggal(selectedDate.toLocaleDateString('id-ID'));
+        }
+    };
+
+    const onTimeChange = (event: any, selectedDate?: Date) => {
+        setShowTimePicker(false);
+        if (selectedDate) {
+            setDateValue(selectedDate);
+            setPukul(selectedDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+        }
+    };
+
     const addItem = useSyncStore((state) => state.addItem);
 
     const handleSubmit = () => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
         addItem({
             id: uuidv4(),
             moduleId: 'kejadian',
@@ -55,7 +79,13 @@ export default function LaporanKejadianCreateScreen() {
         });
 
         Alert.alert('Sukses', 'Laporan Kejadian berhasil disimpan!', [
-            { text: 'OK', onPress: () => router.back() }
+            {
+                text: 'OK', onPress: () => {
+                    router.back();
+                    // Release block on transition
+                    setTimeout(() => setIsSubmitting(false), 500);
+                }
+            }
         ]);
     };
 
@@ -103,15 +133,25 @@ export default function LaporanKejadianCreateScreen() {
                         <View className="flex-row justify-between">
                             <View className="w-[48%] mb-2">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Tanggal</Text>
-                                <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                    <TextInput className="text-slate-800 text-[14px]" placeholder="DD/MM/YYYY" value={tanggal} onChangeText={setTanggal} />
-                                </View>
+                                <TouchableOpacity
+                                    className="border border-slate-200 rounded-xl px-4 py-3 bg-white"
+                                    onPress={() => setShowDatePicker(true)}
+                                >
+                                    <Text className="text-slate-800 text-[14px]">
+                                        {tanggal || 'DD/MM/YYYY'}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
                             <View className="w-[48%] mb-2">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Pukul</Text>
-                                <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                    <TextInput className="text-slate-800 text-[14px]" placeholder="HH:mm" value={pukul} onChangeText={setPukul} />
-                                </View>
+                                <TouchableOpacity
+                                    className="border border-slate-200 rounded-xl px-4 py-3 bg-white"
+                                    onPress={() => setShowTimePicker(true)}
+                                >
+                                    <Text className="text-slate-800 text-[14px]">
+                                        {pukul || 'HH:mm'}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
                     </View>
@@ -294,15 +334,35 @@ export default function LaporanKejadianCreateScreen() {
 
                     {/* SUBMIT BUTTON */}
                     <TouchableOpacity
-                        className="bg-[#ea580c] py-4 rounded-xl flex-row items-center justify-center mt-2 mb-10 shadow-sm active:bg-orange-600"
+                        className={`${isSubmitting ? 'bg-slate-400' : 'bg-[#ea580c]'} py-4 rounded-xl flex-row items-center justify-center mt-2 mb-10 shadow-sm active:bg-orange-600`}
                         onPress={handleSubmit}
                         activeOpacity={0.8}
+                        disabled={isSubmitting}
                     >
-                        <Text className="text-white font-bold text-[15px] tracking-wide">Submit Laporan</Text>
+                        <Text className="text-white font-bold text-[15px] tracking-wide">
+                            {isSubmitting ? 'MENYIMPAN...' : 'SUBMIT LAPORAN'}
+                        </Text>
                     </TouchableOpacity>
 
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {showDatePicker && (
+                <DateTimePicker
+                    value={dateValue}
+                    mode="date"
+                    display="default"
+                    onChange={onDateChange}
+                />
+            )}
+            {showTimePicker && (
+                <DateTimePicker
+                    value={dateValue}
+                    mode="time"
+                    display="default"
+                    onChange={onTimeChange}
+                />
+            )}
         </SafeAreaView>
     );
 }

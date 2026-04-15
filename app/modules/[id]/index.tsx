@@ -1,62 +1,56 @@
 import { GenericModuleCard } from '@/components/features/GenericModuleCard';
 import { Button } from '@/components/ui/Button';
-import { Text } from '@/components/ui/Text';
+import { Text as CustomText } from '@/components/ui/Text';
 import { useSyncStore } from '@/store/useSyncStore';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Activity, Archive, ArrowLeft, CloudOff, Plus } from 'lucide-react-native';
+import { ArrowLeft, CloudOff, Plus, Search } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { FlatList, TouchableOpacity, View } from 'react-native';
+import { FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ModuleHistoryScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
 
+    const [searchQuery, setSearchQuery] = useState('');
+
     // Generic fallback state
     const allItems = useSyncStore((state) => state.items);
     const genericItems = allItems.filter((i) => i.moduleId === id);
 
-    // Custom Module State
-    const [activeTab, setActiveTab] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
-
     const title = id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Module';
 
-    // --- RENDER FALLBACK GENERIC RECORDING LIST --- //
+    // RENDER GENERIC RECORDING LIST //
     const renderGenericFallback = () => {
-        const listData = activeTab === 'ACTIVE'
-            ? genericItems.filter(i => i.sync_status === 0)
-            : genericItems.filter(i => i.sync_status === 1);
+        // Filter by search query and sort by newest first
+        const listData = genericItems.filter(item => {
+            if (!searchQuery) return true;
+            const searchLower = searchQuery.toLowerCase();
+            const itemTitle = (item.data.nama_tamu || item.data.pos_jaga || item.data.record_name || '').toLowerCase();
+            return itemTitle.includes(searchLower) || JSON.stringify(item.data).toLowerCase().includes(searchLower);
+        }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         return (
             <View className="flex-1">
-                <View className="flex-row mx-5 mt-4 mb-2 bg-slate-100 p-1 rounded-xl">
-                    <TouchableOpacity
-                        className="flex-1 flex-row items-center justify-center py-2.5 rounded-lg"
-                        style={activeTab === 'ACTIVE'
-                            ? { backgroundColor: '#ffffff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 }
-                            : { backgroundColor: 'transparent' }}
-                        onPress={() => setActiveTab('ACTIVE')}
-                    >
-                        <Activity size={16} color={activeTab === 'ACTIVE' ? '#ea580c' : '#64748b'} style={{ marginRight: 8 }} />
-                        <Text className="font-bold text-[13px]" style={{ color: activeTab === 'ACTIVE' ? '#1e293b' : '#64748b' }}>Active</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        className="flex-1 flex-row items-center justify-center py-2.5 rounded-lg"
-                        style={activeTab === 'HISTORY'
-                            ? { backgroundColor: '#ffffff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 }
-                            : { backgroundColor: 'transparent' }}
-                        onPress={() => setActiveTab('HISTORY')}
-                    >
-                        <Archive size={16} color={activeTab === 'HISTORY' ? '#ea580c' : '#64748b'} style={{ marginRight: 8 }} />
-                        <Text className="font-bold text-[13px]" style={{ color: activeTab === 'HISTORY' ? '#1e293b' : '#64748b' }}>History</Text>
-                    </TouchableOpacity>
+                {/* SEARCH BAR */}
+                <View className="px-5 py-3 bg-white border-b border-slate-200 shadow-sm z-10">
+                    <View className="flex-row bg-slate-100 rounded-xl px-4 py-2.5 items-center border border-slate-200">
+                        <Search size={18} color="#94a3b8" />
+                        <TextInput
+                            className="flex-1 ml-3 text-slate-800 text-[14px]"
+                            placeholder="Cari teks, nama, atau detail..."
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            placeholderTextColor="#94a3b8"
+                        />
+                    </View>
                 </View>
 
                 <FlatList
                     data={listData}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
-                        <GenericModuleCard item={item} onAfterSubmit={() => setActiveTab('HISTORY')} />
+                        <GenericModuleCard item={item} />
                     )}
                     contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
                     ListEmptyComponent={() => (
@@ -66,7 +60,9 @@ export default function ModuleHistoryScreen() {
                             </View>
                             <Text className="text-xl font-bold text-gray-400 mb-2">Kosong</Text>
                             <Text className="text-gray-400 text-center max-w-[250px]">
-                                {`Tidak ada data ${activeTab === 'ACTIVE' ? 'Pending' : 'Tersinkronisasi'} untuk modul ini.`}
+                                {searchQuery.length > 0
+                                    ? `Tidak ditemukan data untuk "${searchQuery}".`
+                                    : `Belum ada data riwayat untuk modul ini.`}
                             </Text>
                         </View>
                     )}
@@ -78,14 +74,16 @@ export default function ModuleHistoryScreen() {
     const isCustomModule = false;
 
     return (
-        <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
             <Stack.Screen options={{ headerShown: false }} />
             {/* Custom Header */}
-            <View className="flex flex-row items-center p-5 border-b border-gray-200 bg-white shadow-sm z-10">
+            <View className="flex flex-row items-center p-5 border-b border-slate-100 bg-white shadow-sm z-20">
                 <TouchableOpacity onPress={() => router.back()} className="mr-4 p-2 -ml-2 rounded-full active:bg-gray-100">
                     <ArrowLeft size={24} color="#111827" />
                 </TouchableOpacity>
-                <Text variant="h2" className="flex-1">{isCustomModule ? `Modul ${title}` : `Riwayat ${title}`}</Text>
+                <CustomText variant="h2" className="flex-1 text-[18px] font-bold text-slate-800 tracking-tight">
+                    {isCustomModule ? `Modul ${title}` : `Riwayat ${title}`}
+                </CustomText>
             </View>
 
             {renderGenericFallback()}
@@ -95,7 +93,7 @@ export default function ModuleHistoryScreen() {
                 <Button
                     variant="default"
                     size="icon"
-                    className="w-16 h-16 rounded-full shadow-lg items-center justify-center bg-primary"
+                    className="w-16 h-16 rounded-full shadow-lg items-center justify-center bg-[#ea580c]"
                     onPress={() => router.push(`/modules/${id}/create`)}
                 >
                     <Plus size={32} color="white" />

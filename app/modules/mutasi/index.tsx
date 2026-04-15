@@ -6,6 +6,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
     FlatList,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
@@ -16,10 +17,18 @@ export default function MutasiIndexScreen() {
     const mutations = useModuleStore(state => state.mutations);
     const createMutation = useModuleStore(state => state.createMutation);
     const [activeTab, setActiveTab] = useState<'ACTIVE' | 'SUBMITTED'>('ACTIVE');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const filteredMutations = useMemo(() => {
-        return mutations.filter(m => m.status === activeTab);
-    }, [mutations, activeTab]);
+        return mutations.filter(m => {
+            if (m.status !== activeTab) return false;
+            if (!searchQuery) return true;
+            const q = searchQuery.toLowerCase();
+            return m.posName.toLowerCase().includes(q) ||
+                m.shiftName.toLowerCase().includes(q) ||
+                m.createdBy.toLowerCase().includes(q);
+        });
+    }, [mutations, activeTab, searchQuery]);
 
     const renderItem = useCallback(({ item }: { item: MutasiRecord }) => {
         return <MutationCard mutation={item} onAfterSubmit={() => setActiveTab('SUBMITTED')} />;
@@ -63,6 +72,20 @@ export default function MutasiIndexScreen() {
                     >
                         <Text style={{ fontSize: 13, fontWeight: 'bold', color: activeTab === 'SUBMITTED' ? '#1e293b' : '#94a3b8' }}>Sudah Di Submit</Text>
                     </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* SEARCH BAR */}
+            <View className="px-5 pb-3 pt-1 bg-white border-b border-slate-200 shadow-sm z-0">
+                <View className="flex-row bg-slate-100 rounded-xl px-4 py-2.5 items-center border border-slate-200">
+                    <Text className="mr-2 opacity-50">🔍</Text>
+                    <TextInput
+                        className="flex-1 text-slate-800 text-[14px]"
+                        placeholder="Cari pos, shift, pembuat..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholderTextColor="#94a3b8"
+                    />
                 </View>
             </View>
 

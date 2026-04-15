@@ -2,19 +2,23 @@ import { KeyLogCard } from '@/components/features/KeyLogCard';
 import { Button } from '@/components/ui/Button';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useRouter } from 'expo-router';
-import { ArrowLeft, Key, Plus } from 'lucide-react-native';
+import { ArrowLeft, Key, Plus, Search } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function KeyLogIndexScreen() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'TERSEDIA' | 'RIWAYAT'>('TERSEDIA');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const allKeys = useModuleStore((state) => state.keys);
-    const displayedKeys = allKeys.filter(k =>
-        activeTab === 'TERSEDIA' ? k.status === 'DEPOSITED' : k.status === 'TAKEN'
-    );
+    const displayedKeys = allKeys.filter(k => {
+        if (activeTab === 'TERSEDIA' ? k.status !== 'DEPOSITED' : k.status !== 'TAKEN') return false;
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return k.keyName.toLowerCase().includes(q) || k.depositorName.toLowerCase().includes(q);
+    });
 
     return (
         <View className="flex-1 bg-slate-50">
@@ -46,6 +50,20 @@ export default function KeyLogIndexScreen() {
                 >
                     <Text className={`font-bold text-[13px] ${activeTab === 'RIWAYAT' ? 'text-white' : 'text-slate-500'}`}>Riwayat Selesai</Text>
                 </TouchableOpacity>
+            </View>
+
+            {/* SEARCH BAR */}
+            <View className="px-5 py-3 bg-white border-b border-slate-200 shadow-sm z-0">
+                <View className="flex-row bg-slate-100 rounded-xl px-4 py-2.5 items-center border border-slate-200">
+                    <Search size={18} color="#94a3b8" />
+                    <TextInput
+                        className="flex-1 ml-3 text-slate-800 text-[14px]"
+                        placeholder="Cari nama kunci atau penitip..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholderTextColor="#94a3b8"
+                    />
+                </View>
             </View>
 
             <View className="flex-1">

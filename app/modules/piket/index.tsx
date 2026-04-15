@@ -2,18 +2,26 @@ import { PiketCard } from '@/components/features/PiketCard';
 import { Button } from '@/components/ui/Button';
 import { useSyncStore } from '@/store/useSyncStore';
 import { Stack, useRouter } from 'expo-router';
-import { ArrowLeft, MapPin, Plus } from 'lucide-react-native';
-import React from 'react';
-import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { ArrowLeft, MapPin, Plus, Search } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PiketIndexScreen() {
     const router = useRouter();
+    const [searchQuery, setSearchQuery] = useState('');
 
     const allItems = useSyncStore((state) => state.items);
 
-    // Reverse array to show newest first
-    const piketItems = allItems.filter(item => item.moduleId === 'piket').reverse();
+    // Filter, sort by newest first
+    const rawItems = allItems.filter(item => item.moduleId === 'piket').reverse();
+    const piketItems = rawItems.filter(item => {
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return (item.data.petugas || '').toLowerCase().includes(q) ||
+            (item.data.lokasi || '').toLowerCase().includes(q) ||
+            JSON.stringify(item.data).toLowerCase().includes(q);
+    });
 
     return (
         <View className="flex-1 bg-slate-50">
@@ -28,6 +36,20 @@ export default function PiketIndexScreen() {
                     <Text className="flex-1 text-[18px] font-bold text-slate-800 tracking-tight">Riwayat Piket Staff</Text>
                 </View>
             </SafeAreaView>
+
+            {/* SEARCH BAR */}
+            <View className="px-5 py-3 bg-white border-b border-slate-200 shadow-sm z-0">
+                <View className="flex-row bg-slate-100 rounded-xl px-4 py-2.5 items-center border border-slate-200">
+                    <Search size={18} color="#94a3b8" />
+                    <TextInput
+                        className="flex-1 ml-3 text-slate-800 text-[14px]"
+                        placeholder="Cari lokasi atau petugas..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholderTextColor="#94a3b8"
+                    />
+                </View>
+            </View>
 
             {/* List */}
             <View className="flex-1">

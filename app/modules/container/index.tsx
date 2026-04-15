@@ -2,20 +2,28 @@ import { ContainerCard } from '@/components/features/ContainerCard';
 import { Button } from '@/components/ui/Button';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useRouter } from 'expo-router';
-import { ArrowLeft, Plus, Truck } from 'lucide-react-native';
+import { ArrowLeft, Plus, Search, Truck } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ContainerIndexScreen() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'MASUK' | 'KELUAR'>('MASUK');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const allContainers = useModuleStore((state) => state.containers);
 
     // Sort array so newest shows first
-    const displayedContainers = allContainers
-        .filter(c => activeTab === 'MASUK' ? c.status === 'IN' : c.status === 'OUT');
+    const displayedContainers = allContainers.filter(c => {
+        if (activeTab === 'MASUK' ? c.status !== 'IN' : c.status !== 'OUT') return false;
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return c.plateNumber.toLowerCase().includes(q) ||
+            c.driverName.toLowerCase().includes(q) ||
+            c.containerIn.toLowerCase().includes(q) ||
+            (c.containerOut && c.containerOut.toLowerCase().includes(q));
+    });
 
     return (
         <View className="flex-1 bg-slate-50">
@@ -47,6 +55,20 @@ export default function ContainerIndexScreen() {
                 >
                     <Text className={`font-bold text-[13px] ${activeTab === 'KELUAR' ? 'text-white' : 'text-slate-500'}`}>Selesai (Keluar)</Text>
                 </TouchableOpacity>
+            </View>
+
+            {/* SEARCH BAR */}
+            <View className="px-5 py-3 bg-white border-b border-slate-200 shadow-sm z-0">
+                <View className="flex-row bg-slate-100 rounded-xl px-4 py-2.5 items-center border border-slate-200">
+                    <Search size={18} color="#94a3b8" />
+                    <TextInput
+                        className="flex-1 ml-3 text-slate-800 text-[14px]"
+                        placeholder="Cari plat nomor, driver, no container..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholderTextColor="#94a3b8"
+                    />
+                </View>
             </View>
 
             <View className="flex-1">
