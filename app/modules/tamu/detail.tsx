@@ -7,7 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function GenericModuleDetailScreen() {
     const router = useRouter();
-    const { id, itemId } = useLocalSearchParams();
+    const { itemId } = useLocalSearchParams();
+    const id = 'tamu'; // Ex-Generic Route Fallback
     const items = useSyncStore(state => state.items);
 
     const record = items.find(i => i.id === itemId);
