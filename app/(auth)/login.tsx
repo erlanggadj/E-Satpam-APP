@@ -1,14 +1,57 @@
+// login.tsx (Bagian yang diubah saja)
+import { useAuthStore } from '@/store/useAuthStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Eye, EyeOff, Fingerprint, Lock, Mail, Shield } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import api from '../../src/services/api';
 
 export default function LoginScreen() {
+    const login = useAuthStore((state) => state.login);
     const router = useRouter();
     const [rememberMe, setRememberMe] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    
+    // Tambahan State untuk Form
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleLogin = async () => {
+        if (!email || !password) {
+            Alert.alert('Error', 'Email dan password harus diisi');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const response = await api.post('/login', {
+                email: email,
+                password: password
+            });
+
+            if (response.data.success) {
+                // Simpan token ke storage lokal
+                await AsyncStorage.setItem('userToken', response.data.token);
+                // (Opsional) Simpan data user jika diperlukan
+                await AsyncStorage.setItem('userData', JSON.stringify(response.data.user));
+                
+                // Update Global Auth State
+                login(response.data.user);
+                
+                // Redirect ke halaman dashboard mobile
+                router.replace('/(tabs)');
+            }
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message || 'Terjadi kesalahan saat login jaringan';
+            Alert.alert('Login Gagal', errorMessage);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <SafeAreaView className="flex-1 bg-[#0a1128]" edges={['top', 'bottom']}>
@@ -70,10 +113,8 @@ export default function LoginScreen() {
                 {/* INPUT FIELDS (Glassmorphism + Glowing Borders) */}
                 <View className="space-y-4 mb-6 mt-12">
                     {/* Email Input */}
-                    <View
-                        className="flex-row items-center w-full h-[58px] bg-[#ffffff08] rounded-2xl px-4 border"
-                        style={{ borderColor: 'rgba(234, 88, 12, 0.4)' }}
-                    >
+                    <View className="flex-row items-center w-full h-[58px] bg-[#ffffff08] rounded-2xl px-4 border"
+                        style={{ borderColor: 'rgba(234, 88, 12, 0.4)' }}>
                         <Mail size={20} color="#ea580c" className="mr-3" />
                         <TextInput
                             className="flex-1 text-[#ea580c] text-[15px] h-full font-medium"
@@ -82,14 +123,14 @@ export default function LoginScreen() {
                             keyboardType="email-address"
                             autoCapitalize="none"
                             cursorColor="#ea580c"
+                            value={email} // Binding state
+                            onChangeText={setEmail} // Binding fungsi
                         />
                     </View>
 
                     {/* Password Input */}
-                    <View
-                        className="flex-row items-center w-full h-[58px] bg-[#ffffff08] rounded-2xl px-4 border mt-4 mb-1"
-                        style={{ borderColor: 'rgba(234, 88, 12, 0.4)' }}
-                    >
+                    <View className="flex-row items-center w-full h-[58px] bg-[#ffffff08] rounded-2xl px-4 border mt-4 mb-1"
+                        style={{ borderColor: 'rgba(234, 88, 12, 0.4)' }}>
                         <Lock size={20} color="#ea580c" className="mr-3" />
                         <TextInput
                             className="flex-1 text-[#ea580c] text-[15px] h-full font-medium"
@@ -97,6 +138,8 @@ export default function LoginScreen() {
                             placeholderTextColor="rgba(234, 88, 12, 0.5)"
                             secureTextEntry={!showPassword}
                             cursorColor="#ea580c"
+                            value={password} // Binding state
+                            onChangeText={setPassword} // Binding fungsi
                         />
                         <TouchableOpacity onPress={() => setShowPassword(!showPassword)} className="pl-3">
                             {showPassword ? (
@@ -141,9 +184,10 @@ export default function LoginScreen() {
                 {/* ACTION BUTTONS */}
                 <View className="w-full">
                     <TouchableOpacity
-                        className="w-full h-[58px] rounded-2xl bg-[#ea580c] flex items-center justify-center mb-4"
+                        className={`w-full h-[58px] rounded-2xl ${isLoading ? 'bg-gray-500' : 'bg-[#ea580c]'} flex items-center justify-center mb-4`}
                         activeOpacity={0.8}
-                        onPress={() => router.replace('/(tabs)')}
+                        onPress={handleLogin}
+                        disabled={isLoading}
                         style={{
                             shadowColor: "#ea580c",
                             shadowOffset: { width: 0, height: 0 },
@@ -152,9 +196,13 @@ export default function LoginScreen() {
                             elevation: 8,
                         }}
                     >
-                        <Text className="text-white text-[16px] font-bold tracking-wide">
-                            Access Dashboard
-                        </Text>
+                        {isLoading ? (
+                            <ActivityIndicator color="#ffffff" />
+                        ) : (
+                            <Text className="text-white text-[16px] font-bold tracking-wide">
+                                Access Dashboard
+                            </Text>
+                        )}
                     </TouchableOpacity>
 
                     <TouchableOpacity

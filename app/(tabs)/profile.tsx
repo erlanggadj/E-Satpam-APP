@@ -1,16 +1,30 @@
+import { useAuthStore } from '@/store/useAuthStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { BellRing, ChevronRight, LogOut, Settings, ShieldAlert } from 'lucide-react-native';
 import React from 'react';
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const logout = useAuthStore((state) => state.logout);
+    const user = useAuthStore((state) => state.user);
 
-    const handleLogout = () => {
-        // Clear navigation stack and redirect to login
-        router.replace('/(auth)/login');
+    const handleLogout = async () => {
+        Alert.alert('Konfirmasi Keluar', 'Apakah Anda yakin ingin keluar dari aplikasi?', [
+            { text: 'Batal', style: 'cancel' },
+            { 
+                text: 'Keluar', 
+                style: 'destructive',
+                onPress: async () => {
+                    await AsyncStorage.multiRemove(['userToken', 'userData']);
+                    logout();
+                    router.replace('/(auth)/login');
+                }
+            }
+        ]);
     };
 
     return (
@@ -38,10 +52,10 @@ export default function ProfileScreen() {
 
                     <View className="flex-1">
                         <Text className="text-[#0f172a] text-[18px] font-bold tracking-tight mb-1">
-                            ALIF BATANG
+                            {user?.name || 'USER GGF'}
                         </Text>
                         <Text className="text-gray-500 text-[13px] font-medium mb-2">
-                            Anggota Satpam
+                            {user?.role || 'Jabatan Belum Diatur'}
                         </Text>
                         <View className="flex-row items-center">
                             <View className="bg-[#10B981]/10 px-2 py-1 rounded-md">

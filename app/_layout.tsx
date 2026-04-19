@@ -1,5 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
@@ -19,16 +19,20 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Menahan splash screen agar tidak hilang otomatis
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const { isAuthenticated } = useAuthStore();
+  const segments = useSegments();
+  const router = useRouter();
 
   const [loaded] = useFonts({
     Inter: Inter_400Regular,
@@ -39,11 +43,31 @@ export default function RootLayout() {
     'JetBrains Mono-Bold': JetBrainsMono_700Bold,
   });
 
+  // Hapus useEffect pertama yang hanya menutup splash screen berdasarkan 'loaded'.
+  // Kita satukan logikanya di bawah ini:
+
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+    // Jika font belum dimuat, jangan lakukan apa-apa
+    if (!loaded) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    // Logika pengalihan rute
+    if (!isAuthenticated && !inAuthGroup) {
+      router.replace('/(auth)/login');
+    } else if (isAuthenticated && inAuthGroup) {
+      router.replace('/(tabs)');
     }
-  }, [loaded]);
+
+    // Sembunyikan splash screen SETELAH logika routing selesai diputuskan.
+    // Menggunakan setTimeout kecil memberikan waktu bagi router untuk 
+    // me-render halaman tujuan sebelum splash screen benar-benar diangkat.
+    const hideSplash = setTimeout(() => {
+      SplashScreen.hideAsync();
+    }, 100);
+
+    return () => clearTimeout(hideSplash);
+  }, [isAuthenticated, segments, loaded]);
 
   if (!loaded) {
     return null;

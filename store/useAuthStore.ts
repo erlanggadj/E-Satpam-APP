@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 
 interface UserProfile {
-    id: string;
+    user_id: string;       // Sesuai dengan response API
+    employee_id: string;   // Tambahan untuk nomor identitas
     name: string;
     role: string;
-    avatarUrl: string;
-    isOnline: boolean;
+    avatar: string;        // Sesuaikan dengan API (sebelumnya avatarUrl)
+    isOnline?: boolean;
 }
 
 interface AuthState {

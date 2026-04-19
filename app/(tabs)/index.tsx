@@ -1,19 +1,38 @@
-import { Link } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Link, useRouter } from 'expo-router';
 import {
   Bell,
   Power,
   Shield,
 } from 'lucide-react-native';
 import React from 'react';
-import { Image, ImageBackground, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, ImageBackground, Pressable, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DailyBriefingCard } from '@/components/features/DailyBriefingCard';
 import { MODULES } from '@/constants/MockData';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const nameSatpam = 'Erlanggs Dj';
+  const router = useRouter();
+  const { user, logout } = useAuthStore();
+  const nameSatpam = user?.name || 'Petugas GGF';
+
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Anda akan keluar dari sesi ini?', [
+      { text: 'Batal', style: 'cancel' },
+      {
+        text: 'Keluar',
+        style: 'destructive',
+        onPress: async () => {
+          await AsyncStorage.multiRemove(['userToken', 'userData']);
+          logout();
+          router.replace('/(auth)/login');
+        }
+      }
+    ]);
+  };
 
   return (
     <View className="flex-1 bg-white">
@@ -54,26 +73,32 @@ export default function HomeScreen() {
             <View className="bg-white/20 rounded-3xl pt-3 pb-3 pl-3 pr-4 flex-row items-center border border-white/30 shadow-lg">
               <View className="relative mr-4">
                 <Image
-                  source={{ uri: 'https://avatars.githubusercontent.com/u/83545747?s=96&v=4' }}
+                  // Gunakan user.avatar jika ada, jika tidak gunakan default
+                  source={{ uri: user?.avatar || 'https://avatars.githubusercontent.com/u/83545747?s=96&v=4' }}
                   className="w-[52px] h-[52px] rounded-[18px] bg-gray-300"
                 />
                 <View className="absolute -bottom-0.5 -right-0.5 w-[14px] h-[14px] bg-[#10B981] rounded-full border-2 border-[#3f4b52]" />
               </View>
 
               <View className="flex-1 justify-center">
-                <Text className="text-white text-[15px] font-bold tracking-wide">{nameSatpam}</Text>
-                <Text className="text-gray-300 text-[11px] font-medium mb-1.5">Kepala Satpam</Text>
+                <Text className="text-white text-[15px] font-bold tracking-wide">{user?.name || 'Petugas GGF'}</Text>
+                {/* Ganti hardcode 'Kepala Satpam' dengan state role */}
+                <Text className="text-gray-300 text-[11px] font-medium mb-1.5">{user?.role || 'Jabatan Belum Diatur'}</Text>
                 <View className="flex-row items-center">
                   <View className="bg-[#F97316] px-[6px] py-[2px] rounded-md mr-2">
                     <Text className="text-[#3b1704] text-[9px] font-bold">ONLINE</Text>
                   </View>
-                  <Text className="text-gray-400 text-[10px] font-medium">ID: 992-GGF</Text>
+                  {/* Ganti hardcode ID dengan state employee_id */}
+                  <Text className="text-gray-400 text-[10px] font-medium">ID: {user?.employee_id || '---'}</Text>
                 </View>
               </View>
 
-              <View className="w-10 h-10 rounded-full border border-white/30 flex items-center justify-center bg-white/10">
+              <TouchableOpacity 
+                onPress={handleLogout}
+                className="w-10 h-10 rounded-full border border-white/30 flex items-center justify-center bg-white/10"
+              >
                 <Power size={18} color="#FFFFFF" strokeWidth={2.5} />
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
         </ImageBackground>
