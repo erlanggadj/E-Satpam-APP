@@ -1,3 +1,4 @@
+import { syncAllPendingData } from '@/hooks/useBackgroundSync';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -51,6 +52,7 @@ export default function MutasiDetailScreen() {
     const handleAddActivity = () => {
         if (!description.trim()) return;
         addActivity(mutationId as string, time, description, user?.name || "System");
+        syncAllPendingData();
         setDescription('');
         setModalVisible(false);
     };

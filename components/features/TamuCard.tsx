@@ -1,14 +1,15 @@
+import { SyncBadge } from '@/components/ui/SyncBadge';
 import { SyncItem } from '@/store/useSyncStore';
 import { useRouter } from 'expo-router';
-import { CheckCircle2, Clock, FileText } from 'lucide-react-native';
+import { Clock, FileText } from 'lucide-react-native';
 import React, { useRef } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
-interface GenericModuleCardProps {
+interface TamuCardProps {
     item: SyncItem;
 }
 
-export function GenericModuleCard({ item }: GenericModuleCardProps) {
+export function TamuCard({ item }: TamuCardProps) {
     const router = useRouter();
     const isNavigating = useRef(false);
 
@@ -25,7 +26,7 @@ export function GenericModuleCard({ item }: GenericModuleCardProps) {
         return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' - ' + d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
     };
 
-    const title = item.data.nama_tamu || item.data.pos_jaga || item.data.record_name || `Log: ${item.id.substring(0, 8)}`;
+    const title = item.data.namaTamu || item.data.nama_tamu || item.data.pos_jaga || item.data.record_name || `Log: ${item.id.substring(0, 8)}`;
     const subtitle = item.data.tujuan || item.data.catatan || item.data.detail || 'Tidak ada deskripsi rinci';
 
     return (
@@ -44,9 +45,7 @@ export function GenericModuleCard({ item }: GenericModuleCardProps) {
                         <Text className="text-slate-500 text-[12px] font-medium mt-0.5">{subtitle}</Text>
                     </View>
                 </View>
-                <View className="bg-emerald-50 px-2 py-1 rounded border border-emerald-100">
-                    <Text className="text-emerald-600 text-[10px] font-bold uppercase tracking-widest">Disubmit</Text>
-                </View>
+                <SyncBadge status={item.sync_status || 0} moduleType={(item?.moduleId?.toUpperCase() as any) || 'GENERIC'} />
             </View>
 
             <View className="flex-col gap-1.5 pt-3 mt-1 border-t border-slate-100">
@@ -57,12 +56,6 @@ export function GenericModuleCard({ item }: GenericModuleCardProps) {
                     </Text>
                 </View>
 
-                <View className="flex-row items-center mt-1">
-                    <CheckCircle2 size={12} color="#10b981" />
-                    <Text className="text-emerald-600 text-[12px] font-medium ml-1">
-                        Tersinkronisasi & Dikirim
-                    </Text>
-                </View>
             </View>
         </TouchableOpacity>
     );

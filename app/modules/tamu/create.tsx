@@ -1,71 +1,74 @@
+import { api } from '@/config/api';
 import { useSyncStore } from '@/store/useSyncStore';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, BadgeInfo, FileText, Key, Send } from 'lucide-react-native';
+import { Stack, useRouter } from 'expo-router';
+import { ArrowLeft, BadgeInfo, FileText, Send } from 'lucide-react-native';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import 'react-native-get-random-values';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { v4 as uuidv4 } from 'uuid';
 import * as z from 'zod';
 
 const formSchema = z.object({
-    field1: z.string().min(3, 'Data ini wajib diisi minimal 3 karakter').max(50),
-    field2: z.string().optional(),
-    field3: z.string().optional(),
-    field4: z.string().optional(),
-    field5: z.string().optional(),
+    namaTamu: z.string().min(3, 'Data ini wajib diisi minimal 3 karakter').max(50),
+    tujuan: z.string().optional(),
+    keterangan: z.string().optional(),
+    noTelp: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-export default function CreateModuleScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+export default function CreateTamuScreen() {
     const router = useRouter();
     const addItem = useSyncStore((state) => state.addItem);
-
-    const title = id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Module';
 
     const {
         control,
         handleSubmit,
-        formState: { errors },
+        formState: { errors, isSubmitting },
     } = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            field1: '',
-            field2: '',
-            field3: '',
-            field4: '',
-            field5: '',
+            namaTamu: '',
+            tujuan: '',
+            keterangan: '',
+            noTelp: '',
         },
     });
 
-    const onSubmit = (data: FormValues) => {
-        const displayData =
-            id === 'tamu'
-                ? { nama_tamu: data.field1, tujuan: data.field2 }
-                : id === 'keylog'
-                    ? { key_name: data.field1, deposited_by: data.field2 }
-                    : { record_name: data.field1, detail: data.field2 };
+    const onSubmit = async (data: FormValues) => {
+        const id = uuidv4();
+        const pukul = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-        const newItem = {
-            id: uuidv4(),
-            moduleId: id as string,
-            data: displayData,
-            sync_status: 0 as const,
-            created_at: new Date().toISOString(),
+        const payload = {
+            namaTamu: data.namaTamu,
+            tujuan: data.tujuan || '',
+            pukul,
+            keterangan: data.keterangan || '',
+            noTelp: data.noTelp || '',
         };
 
-        addItem(newItem);
+        // 1. Save locally first (offline support)
+        addItem({
+            id,
+            moduleId: 'tamu',
+            data: { id, ...payload },
+            sync_status: 0,
+            created_at: new Date().toISOString(),
+        });
 
-        if (Platform.OS === 'android') {
-            ToastAndroid.show('Data disimpan offline', ToastAndroid.SHORT);
-        } else {
-            Alert.alert('Sukses', 'Data disimpan offline');
-        }
-
+        // 2. Navigate back IMMEDIATELY (no duplicate clicks possible)
         router.back();
+
+        // 3. POST to backend in background (fire and forget)
+        try {
+            await api.post('/tamu', { id, ...payload });
+            useSyncStore.getState().markItemAsSynced(id);
+            console.log('[Tamu] ✅ Synced to backend');
+        } catch (err) {
+            console.warn('[Tamu] ❌ Gagal kirim ke backend, tersimpan offline:', err);
+        }
     };
 
     return (
@@ -76,7 +79,7 @@ export default function CreateModuleScreen() {
                 <TouchableOpacity onPress={() => router.back()} className="mr-4 p-2 -ml-2 rounded-full active:bg-gray-100">
                     <ArrowLeft size={24} color="#1e293b" />
                 </TouchableOpacity>
-                <Text className="flex-1 text-[18px] font-bold text-slate-800 tracking-tight">Tambah {title}</Text>
+                <Text className="flex-1 text-[18px] font-bold text-slate-800 tracking-tight">Tambah Tamu</Text>
             </View>
 
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
@@ -84,33 +87,29 @@ export default function CreateModuleScreen() {
 
                     <View className="bg-white rounded-2xl p-5 mb-5 shadow-sm border border-slate-100">
                         <View className="flex-row items-center mb-5">
-                            {id === 'keylog' ? (
-                                <Key size={18} color="#ea580c" style={{ marginRight: 8 }} />
-                            ) : (
-                                <BadgeInfo size={18} color="#ea580c" style={{ marginRight: 8 }} />
-                            )}
+                            <BadgeInfo size={18} color="#ea580c" style={{ marginRight: 8 }} />
                             <Text className="font-bold text-slate-800 text-[15px]">Informasi Dasar</Text>
                         </View>
 
                         <Controller
                             control={control}
-                            name="field1"
+                            name="namaTamu"
                             render={({ field: { onChange, onBlur, value } }) => (
                                 <View className="mb-4">
                                     <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                                        {id === 'tamu' ? 'Nama Tamu' : id === 'keylog' ? 'Nama Kunci' : 'Field 1 (Wajib)'}
+                                        Nama Tamu
                                     </Text>
-                                    <View className={`border ${errors.field1 ? 'border-red-400' : 'border-slate-200'} rounded-xl px-4 py-3 bg-white`}>
+                                    <View className={`border ${errors.namaTamu ? 'border-red-400' : 'border-slate-200'} rounded-xl px-4 py-3 bg-white`}>
                                         <TextInput
                                             className="text-slate-800 text-[14px]"
-                                            placeholder="Masukkan data..."
+                                            placeholder="Masukkan nama tamu..."
                                             onBlur={onBlur}
                                             onChangeText={onChange}
                                             value={value}
                                         />
                                     </View>
-                                    {errors.field1 && (
-                                        <Text className="text-red-500 text-[10px] mt-1 ml-1">{errors.field1.message}</Text>
+                                    {errors.namaTamu && (
+                                        <Text className="text-red-500 text-[10px] mt-1 ml-1">{errors.namaTamu.message}</Text>
                                     )}
                                 </View>
                             )}
@@ -118,37 +117,16 @@ export default function CreateModuleScreen() {
 
                         <Controller
                             control={control}
-                            name="field2"
+                            name="tujuan"
                             render={({ field: { onChange, onBlur, value } }) => (
                                 <View className="mb-4">
                                     <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                                        {id === 'tamu' ? 'Tujuan' : id === 'keylog' ? 'Dititip Oleh' : 'Field 2 (Opsional)'}
+                                        Tujuan
                                     </Text>
                                     <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
                                         <TextInput
                                             className="text-slate-800 text-[14px]"
-                                            placeholder="Masukkan detail..."
-                                            onBlur={onBlur}
-                                            onChangeText={onChange}
-                                            value={value}
-                                        />
-                                    </View>
-                                </View>
-                            )}
-                        />
-
-                        <Controller
-                            control={control}
-                            name="field3"
-                            render={({ field: { onChange, onBlur, value } }) => (
-                                <View>
-                                    <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                                        {id === 'tamu' ? 'Pukul' : id === 'keylog' ? 'Catatan Tambahan' : 'Field 3 (Opsional)'}
-                                    </Text>
-                                    <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                        <TextInput
-                                            className="text-slate-800 text-[14px]"
-                                            placeholder="Masukkan info..."
+                                            placeholder="Masukkan detail tujuan..."
                                             onBlur={onBlur}
                                             onChangeText={onChange}
                                             value={value}
@@ -167,11 +145,11 @@ export default function CreateModuleScreen() {
 
                         <Controller
                             control={control}
-                            name="field4"
+                            name="keterangan"
                             render={({ field: { onChange, onBlur, value } }) => (
                                 <View className="mb-4">
                                     <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                                        {id === 'tamu' ? 'Keterangan' : 'Field 4 (Opsional)'}
+                                        Keterangan
                                     </Text>
                                     <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
                                         <TextInput
@@ -191,11 +169,11 @@ export default function CreateModuleScreen() {
 
                         <Controller
                             control={control}
-                            name="field5"
+                            name="noTelp"
                             render={({ field: { onChange, onBlur, value } }) => (
                                 <View>
                                     <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                                        {id === 'tamu' ? 'No Telp' : 'Field 5 (Opsional)'}
+                                        No Telp
                                     </Text>
                                     <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
                                         <TextInput
@@ -204,6 +182,7 @@ export default function CreateModuleScreen() {
                                             onBlur={onBlur}
                                             onChangeText={onChange}
                                             value={value}
+                                            keyboardType="phone-pad"
                                         />
                                     </View>
                                 </View>
@@ -212,12 +191,15 @@ export default function CreateModuleScreen() {
                     </View>
 
                     <TouchableOpacity
-                        className="bg-[#ea580c] py-4 rounded-xl flex-row items-center justify-center mt-2 mb-10 shadow-sm overflow-hidden active:bg-orange-600"
+                        className={`${isSubmitting ? 'bg-slate-400' : 'bg-[#ea580c]'} py-4 rounded-xl flex-row items-center justify-center mt-2 mb-10 shadow-sm overflow-hidden active:bg-orange-600`}
                         onPress={handleSubmit(onSubmit)}
                         activeOpacity={0.8}
+                        disabled={isSubmitting}
                     >
-                        <Text className="text-white font-bold text-[15px] mr-2">Simpan {title}</Text>
-                        <Send size={16} color="#ffffff" style={{ marginLeft: 4, transform: [{ rotate: '-45deg' }, { translateY: -4 }] }} />
+                        <Text className="text-white font-bold text-[15px] mr-2">
+                            {isSubmitting ? 'MENYIMPAN...' : 'Simpan Tamu'}
+                        </Text>
+                        {!isSubmitting && <Send size={16} color="#ffffff" style={{ marginLeft: 4, transform: [{ rotate: '-45deg' }, { translateY: -4 }] }} />}
                     </TouchableOpacity>
 
                 </ScrollView>

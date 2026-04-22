@@ -1,3 +1,4 @@
+import { SyncBadge } from '@/components/ui/SyncBadge';
 import { ContainerRecord } from '@/store/useModuleStore';
 import { useRouter } from 'expo-router';
 import { ArrowRightCircle, CheckCircle2, Clock, Truck } from 'lucide-react-native';
@@ -58,9 +59,12 @@ export function ContainerCard({ container }: ContainerCardProps) {
 
             {/* Main Info Area */}
             <View className="flex-1 justify-center relative">
-                <Text className="text-slate-800 text-[18px] font-bold tracking-tight mb-0.5" numberOfLines={1}>
-                    {container.plateNumber}
-                </Text>
+                <View className="flex-row justify-between items-start mb-0.5">
+                    <Text className="text-slate-800 text-[18px] font-bold tracking-tight flex-1 mr-2" numberOfLines={1}>
+                        {container.plateNumber}
+                    </Text>
+                    <SyncBadge status={container.sync_status || 0} business_status={container.status} moduleType="CONTAINER" />
+                </View>
                 <Text className="text-slate-500 text-[13px] font-medium mb-2">
                     {container.driverName} • {container.cargo}
                 </Text>

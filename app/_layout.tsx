@@ -16,9 +16,12 @@ import {
 } from '@expo-google-fonts/jetbrains-mono';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useBackgroundSync } from '@/hooks/useBackgroundSync';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useRouter, useSegments } from 'expo-router';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -28,7 +31,17 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  useBackgroundSync();
   const colorScheme = useColorScheme();
+  const segments = useSegments();
+  const router = useRouter();
+
+  const { isAuthenticated, initAuth } = useAuthStore();
+  const [authInitialized, setAuthInitialized] = useState(false);
+
+  useEffect(() => {
+    initAuth().then(() => setAuthInitialized(true));
+  }, []);
 
   const [loaded] = useFonts({
     Inter: Inter_400Regular,
@@ -40,12 +53,21 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (loaded) {
+    if (loaded && authInitialized) {
       SplashScreen.hideAsync();
-    }
-  }, [loaded]);
 
-  if (!loaded) {
+      const inAuthGroup = segments[0] === '(auth)';
+      if (!isAuthenticated && !inAuthGroup) {
+        // Redirect to login if not authenticated and trying to access protected routes
+        router.replace('/(auth)/login');
+      } else if (isAuthenticated && inAuthGroup) {
+        // Redirect to tabs if authenticated but viewing login screens
+        router.replace('/(tabs)');
+      }
+    }
+  }, [loaded, authInitialized, isAuthenticated, segments]);
+
+  if (!loaded || !authInitialized) {
     return null;
   }
 

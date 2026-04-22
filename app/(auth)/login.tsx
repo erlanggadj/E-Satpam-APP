@@ -1,14 +1,50 @@
+import { api } from '@/config/api';
+import { useAuthStore } from '@/store/useAuthStore';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Eye, EyeOff, Fingerprint, Lock, Mail, Shield } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
     const router = useRouter();
     const [rememberMe, setRememberMe] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
+
+    const setAuth = useAuthStore((state) => state.setAuth);
+
+    const handleLogin = async () => {
+        if (!email || !password) {
+            setErrorMsg('Email dan Password wajib diisi.');
+            return;
+        }
+
+        setIsLoading(true);
+        setErrorMsg('');
+
+        try {
+            const response = await api.post('/auth/login', { email, password });
+
+            // Assume format { success: true, data: { access_token, user: { id, name, email, role } } }
+            if (response.data?.success && response.data?.data?.access_token) {
+                const { access_token, user } = response.data.data;
+                await setAuth(access_token, user);
+                router.replace('/(tabs)');
+            } else {
+                setErrorMsg('Login gagal, periksa email dan password.');
+            }
+        } catch (error: any) {
+            console.error('Login Error:', error?.response?.data || error.message);
+            setErrorMsg(error?.response?.data?.message || 'Koneksi ke server gagal.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <SafeAreaView className="flex-1 bg-[#0a1128]" edges={['top', 'bottom']}>
@@ -82,6 +118,8 @@ export default function LoginScreen() {
                             keyboardType="email-address"
                             autoCapitalize="none"
                             cursorColor="#ea580c"
+                            value={email}
+                            onChangeText={setEmail}
                         />
                     </View>
 
@@ -97,6 +135,8 @@ export default function LoginScreen() {
                             placeholderTextColor="rgba(234, 88, 12, 0.5)"
                             secureTextEntry={!showPassword}
                             cursorColor="#ea580c"
+                            value={password}
+                            onChangeText={setPassword}
                         />
                         <TouchableOpacity onPress={() => setShowPassword(!showPassword)} className="pl-3">
                             {showPassword ? (
@@ -138,12 +178,20 @@ export default function LoginScreen() {
                     </TouchableOpacity>
                 </View>
 
+                {/* ERROR MESSAGE DISPLAY */}
+                {errorMsg ? (
+                    <View className="mb-4 bg-red-500/20 px-4 py-3 rounded-xl border border-red-500/50">
+                        <Text className="text-red-400 text-sm font-medium text-center">{errorMsg}</Text>
+                    </View>
+                ) : null}
+
                 {/* ACTION BUTTONS */}
                 <View className="w-full">
                     <TouchableOpacity
                         className="w-full h-[58px] rounded-2xl bg-[#ea580c] flex items-center justify-center mb-4"
                         activeOpacity={0.8}
-                        onPress={() => router.replace('/(tabs)')}
+                        onPress={handleLogin}
+                        disabled={isLoading}
                         style={{
                             shadowColor: "#ea580c",
                             shadowOffset: { width: 0, height: 0 },
@@ -152,9 +200,13 @@ export default function LoginScreen() {
                             elevation: 8,
                         }}
                     >
-                        <Text className="text-white text-[16px] font-bold tracking-wide">
-                            Access Dashboard
-                        </Text>
+                        {isLoading ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text className="text-white text-[16px] font-bold tracking-wide">
+                                Access Dashboard
+                            </Text>
+                        )}
                     </TouchableOpacity>
 
                     <TouchableOpacity

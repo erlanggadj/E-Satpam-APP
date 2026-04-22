@@ -1,3 +1,4 @@
+import { SyncBadge } from '@/components/ui/SyncBadge';
 import { useRouter } from 'expo-router';
 import { AlertCircle, Calendar } from 'lucide-react-native';
 import React, { useRef } from 'react';
@@ -9,6 +10,7 @@ export interface KejadianReport {
     perihal: string;
     waktu: string;
     status: 'DIPROSES' | 'SELESAI';
+    sync_status: number;
 }
 
 interface Props {
@@ -43,15 +45,7 @@ export function LaporanKejadianCard({ item }: Props) {
             <View className="flex-1 justify-center">
                 <View className="flex-row items-start justify-between mb-1">
                     <Text className="text-slate-400 text-[11px] font-bold uppercase tracking-wider flex-1 mr-2" numberOfLines={1}>{item.nomor}</Text>
-                    {isDone ? (
-                        <View className="bg-emerald-50 px-2 py-1 rounded border border-emerald-100">
-                            <Text className="text-emerald-700 text-[9px] font-bold uppercase tracking-widest">Selesai</Text>
-                        </View>
-                    ) : (
-                        <View className="bg-orange-50 px-2 py-1 rounded border border-orange-100">
-                            <Text className="text-orange-600 text-[9px] font-bold uppercase tracking-widest">Diproses</Text>
-                        </View>
-                    )}
+                    <SyncBadge status={item.sync_status} moduleType="KEJADIAN" />
                 </View>
 
                 <Text className="text-slate-800 text-[15px] font-bold tracking-tight mb-2 mt-1" numberOfLines={2}>

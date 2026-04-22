@@ -1,3 +1,4 @@
+import { api } from '@/config/api';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useRouter } from 'expo-router';
 import { ArrowLeft, BadgeCheck, Info, PackageOpen } from 'lucide-react-native';
@@ -22,17 +23,25 @@ export default function AfkirCreateScreen() {
     const [approvedBy, setApprovedBy] = useState('');
     const [identityNote, setIdentityNote] = useState('');
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!plateNumber || !driverName || !driverId || !vehicleType || !itemType || !total || !buyer || !approvedBy || !identityNote) {
             Alert.alert('Data Belum Lengkap', 'Seluruh field data registrasi penarikan afkir wajib diisi!');
             return;
         }
 
+        // 1. Save locally
         checkinAfkir(plateNumber, driverName, driverId, vehicleType, itemType, total, buyer, approvedBy, identityNote);
 
-        Alert.alert('Sukses', 'Kendaraan pengangkut afkir berhasil terdata!', [
-            { text: 'OK', onPress: () => router.back() }
-        ]);
+        // 2. Navigate back IMMEDIATELY
+        router.back();
+
+        // 3. POST in background
+        try {
+            await api.post('/afkir', { plateNumber, driverName, driverId, vehicleType, itemType, total, buyer, approvedBy, identityNote });
+            console.log('[Afkir] ✅ Synced');
+        } catch (err) {
+            console.warn('[Afkir] ❌ Offline:', err);
+        }
     };
 
     return (

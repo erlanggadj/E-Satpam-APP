@@ -1,10 +1,12 @@
 import { MutationCard } from '@/components/features/MutationCard';
+import { api } from '@/config/api';
 import { MutasiRecord, useModuleStore } from '@/store/useModuleStore';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { ArrowLeft, Inbox, Plus } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
     FlatList,
+    RefreshControl,
     Text,
     TextInput,
     TouchableOpacity,
@@ -18,9 +20,14 @@ export default function MutasiIndexScreen() {
     const createMutation = useModuleStore(state => state.createMutation);
     const [activeTab, setActiveTab] = useState<'ACTIVE' | 'SUBMITTED'>('ACTIVE');
     const [searchQuery, setSearchQuery] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
 
     const filteredMutations = useMemo(() => {
+        const isToday = (dateStr: string) =>
+            new Date(dateStr).toDateString() === new Date().toDateString();
+
         return mutations.filter(m => {
+            if (!isToday(m.date)) return false; // Dashboard: hari ini saja
             if (m.status !== activeTab) return false;
             if (!searchQuery) return true;
             const q = searchQuery.toLowerCase();
@@ -29,6 +36,43 @@ export default function MutasiIndexScreen() {
                 m.createdBy.toLowerCase().includes(q);
         });
     }, [mutations, activeTab, searchQuery]);
+
+    const fetchServerData = async () => {
+        try {
+            const res = await api.get('/mutasi'); // ?history=false defaults to today as per PRD
+            if (res.data?.success && Array.isArray(res.data?.data)) {
+                const fetchedMutations: any[] = [];
+                const fetchedMembers: any[] = [];
+                const fetchedActivities: any[] = [];
+
+                res.data.data.forEach((m: any) => {
+                    const { members, activities, createdAt, updatedAt, ...rest } = m;
+                    fetchedMutations.push({ ...rest, date: rest.date || createdAt });
+                    if (members) fetchedMembers.push(...members);
+                    if (activities) fetchedActivities.push(...activities);
+                });
+
+                const store = useModuleStore.getState();
+                if (fetchedMutations.length > 0) store.syncServerData('mutations', fetchedMutations);
+                if (fetchedMembers.length > 0) store.syncServerData('mutationMembers', fetchedMembers);
+                if (fetchedActivities.length > 0) store.syncServerData('mutationActivities', fetchedActivities);
+            }
+        } catch (error) {
+            console.error('Failed to fetch mutasi data', error);
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchServerData();
+        }, [])
+    );
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchServerData();
+        setRefreshing(false);
+    };
 
     const renderItem = useCallback(({ item }: { item: MutasiRecord }) => {
         return <MutationCard mutation={item} onAfterSubmit={() => setActiveTab('SUBMITTED')} />;
@@ -96,6 +140,9 @@ export default function MutasiIndexScreen() {
                 contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={EmptyState}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
+                }
             />
 
             <TouchableOpacity

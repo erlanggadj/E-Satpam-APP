@@ -1,3 +1,4 @@
+import { api } from '@/config/api';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useRouter } from 'expo-router';
 import { ArrowLeft, BriefcaseBusiness, MapPin, User } from 'lucide-react-native';
@@ -18,17 +19,25 @@ export default function IzinCreateScreen() {
     const [destination, setDestination] = useState('');
     const [note, setNote] = useState('');
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!name || !department || !destination || !note) {
             Alert.alert('Data Belum Lengkap', 'Seluruh field data wajib diisi!');
             return;
         }
 
+        // 1. Save locally
         createIzin(name, department, reasonType, destination, note);
 
-        Alert.alert('Sukses', 'Data pelaporan izin staff berhasil dibuat!', [
-            { text: 'OK', onPress: () => router.back() }
-        ]);
+        // 2. Navigate back IMMEDIATELY
+        router.back();
+
+        // 3. POST in background
+        try {
+            await api.post('/izin', { name, department, reasonType, destination, note });
+            console.log('[Izin] ✅ Synced');
+        } catch (err) {
+            console.warn('[Izin] ❌ Offline:', err);
+        }
     };
 
     return (

@@ -1,19 +1,48 @@
 import { KeyLogCard } from '@/components/features/KeyLogCard';
 import { Button } from '@/components/ui/Button';
+import { api } from '@/config/api';
 import { useModuleStore } from '@/store/useModuleStore';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { ArrowLeft, Key, Plus, Search } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { FlatList, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function KeyLogIndexScreen() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'TERSEDIA' | 'RIWAYAT'>('TERSEDIA');
     const [searchQuery, setSearchQuery] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
 
     const allKeys = useModuleStore((state) => state.keys);
+    const isToday = (dateStr: string) =>
+        new Date(dateStr).toDateString() === new Date().toDateString();
+
+    const fetchServerData = async () => {
+        try {
+            const res = await api.get('/keylog');
+            if (res.data?.success && Array.isArray(res.data?.data)) {
+                useModuleStore.getState().syncServerData('keys', res.data.data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch keylog data', error);
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchServerData();
+        }, [])
+    );
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchServerData();
+        setRefreshing(false);
+    };
+
     const displayedKeys = allKeys.filter(k => {
+        if (!isToday(k.depositTime)) return false; // Dashboard: hari ini saja
         if (activeTab === 'TERSEDIA' ? k.status !== 'DEPOSITED' : k.status !== 'TAKEN') return false;
         if (!searchQuery) return true;
         const q = searchQuery.toLowerCase();
@@ -72,6 +101,9 @@ export default function KeyLogIndexScreen() {
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => <KeyLogCard keyRecord={item} />}
                     contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
+                    }
                     ListEmptyComponent={() => (
                         <View className="flex-1 justify-center items-center py-20 mt-10">
                             <View className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">

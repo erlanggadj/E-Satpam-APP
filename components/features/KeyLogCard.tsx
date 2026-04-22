@@ -1,3 +1,4 @@
+import { SyncBadge } from '@/components/ui/SyncBadge';
 import { KeyRecord } from '@/store/useModuleStore';
 import { useRouter } from 'expo-router';
 import { Clock, Key, UserCheck } from 'lucide-react-native';
@@ -33,19 +34,13 @@ export function KeyLogCard({ keyRecord }: KeyLogCardProps) {
                         <Key size={20} color="#3b82f6" />
                     </View>
                     <View className="flex-1 pr-4">
-                        <Text className="text-slate-800 text-[15px] font-bold" numberOfLines={1}>{keyRecord.keyName}</Text>
+                        <View className="flex-row items-start justify-between mb-0.5">
+                            <Text className="text-slate-800 text-[15px] font-bold flex-1 mr-2" numberOfLines={1}>{keyRecord.keyName}</Text>
+                            <SyncBadge status={keyRecord.sync_status || 0} business_status={keyRecord.status} moduleType="KEYLOG" />
+                        </View>
                         <Text className="text-slate-500 text-[12px] font-medium mt-0.5">Titip: {keyRecord.depositorName} ({keyRecord.depositorDivision})</Text>
                     </View>
                 </View>
-                {keyRecord.status === 'TAKEN' ? (
-                    <View className="bg-emerald-50 px-2 py-1 rounded border border-emerald-100">
-                        <Text className="text-emerald-600 text-[10px] font-bold uppercase tracking-widest">Selesai</Text>
-                    </View>
-                ) : (
-                    <View className="bg-blue-50 px-2 py-1 rounded border border-blue-100">
-                        <Text className="text-blue-600 text-[10px] font-bold uppercase tracking-widest">Tersedia</Text>
-                    </View>
-                )}
             </View>
 
             <View className="flex-col gap-1.5 mb-1 pt-3 mt-1 border-t border-slate-100">
@@ -72,7 +67,7 @@ export function KeyLogCard({ keyRecord }: KeyLogCardProps) {
                         className="flex-1 bg-[#ea580c] py-2.5 rounded-xl flex-row items-center justify-center shadow-sm active:bg-orange-600"
                         activeOpacity={0.8}
                         onPress={(e) => {
-                            e.stopPropagation(); // Prevent the parent Touchable from firing
+                            e.stopPropagation();
                             handleTakeKey();
                         }}
                     >

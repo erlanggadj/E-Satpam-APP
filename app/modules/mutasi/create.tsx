@@ -1,3 +1,4 @@
+import { syncAllPendingData } from '@/hooks/useBackgroundSync';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useModuleStore } from '@/store/useModuleStore';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -119,8 +120,11 @@ export default function CreateMutasiScreen() {
             mappedMembers
         );
 
-        Alert.alert("Sukses", "Card Mutasi Berhasil Dicetak!");
+        // Navigate back IMMEDIATELY
         router.back();
+
+        // Sync in background
+        syncAllPendingData();
     };
 
     return (

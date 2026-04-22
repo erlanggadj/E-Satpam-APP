@@ -1,3 +1,4 @@
+import { syncAllPendingData } from '@/hooks/useBackgroundSync';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Clock, Image as ImageIcon, Info, Plus, UserCheck } from 'lucide-react-native';
@@ -41,7 +42,8 @@ export default function AmbilKeyScreen() {
         }
 
         takeKey(keyData.id, takerName, takerDivision, keterangan);
-        Alert.alert('Sukses', 'Kunci berhasil diambil!', [
+        syncAllPendingData();
+        Alert.alert('Sukses', 'Kunci berhasil diambil, mencoba sinkronisasi...', [
             { text: 'OK', onPress: () => router.back() }
         ]);
     };

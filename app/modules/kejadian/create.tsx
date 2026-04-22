@@ -1,3 +1,4 @@
+import { api } from '@/config/api';
 import { useSyncStore } from '@/store/useSyncStore';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
@@ -5,7 +6,9 @@ import {
     AlertTriangle,
     ArrowLeft,
     Briefcase,
+    Calendar,
     Camera,
+    Clock,
     FileText,
     Info,
     Plus,
@@ -14,7 +17,7 @@ import {
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-    Alert, KeyboardAvoidingView, Platform,
+    KeyboardAvoidingView, Platform,
     ScrollView, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import 'react-native-get-random-values';
@@ -28,18 +31,18 @@ export default function LaporanKejadianCreateScreen() {
     const [tempat, setTempat] = useState('');
     const [tanggal, setTanggal] = useState(new Date().toLocaleDateString('id-ID'));
     const [pukul, setPukul] = useState(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
-    const [korban_nama, setKorbanNama] = useState('');
-    const [korban_alamat, setKorbanAlamat] = useState('');
-    const [pelaku_nama, setPelakuNama] = useState('');
-    const [pelaku_alamat, setPelakuAlamat] = useState('');
-    const [saksi_1, setSaksi1] = useState('');
-    const [saksi_2, setSaksi2] = useState('');
-    const [saksi_3, setSaksi3] = useState('');
-    const [saksi_4, setSaksi4] = useState('');
-    const [bukti_1, setBukti1] = useState('');
-    const [bukti_2, setBukti2] = useState('');
-    const [bukti_3, setBukti3] = useState('');
-    const [bukti_4, setBukti4] = useState('');
+    const [korbanNama, setKorbanNama] = useState('');
+    const [korbanAlamat, setKorbanAlamat] = useState('');
+    const [pelakuNama, setPelakuNama] = useState('');
+    const [pelakuAlamat, setPelakuAlamat] = useState('');
+    const [saksi1, setSaksi1] = useState('');
+    const [saksi2, setSaksi2] = useState('');
+    const [saksi3, setSaksi3] = useState('');
+    const [saksi4, setSaksi4] = useState('');
+    const [bukti1, setBukti1] = useState('');
+    const [bukti2, setBukti2] = useState('');
+    const [bukti3, setBukti3] = useState('');
+    const [bukti4, setBukti4] = useState('');
     const [kronologis, setKronologis] = useState('');
     const [kerugian, setKerugian] = useState('');
     const [tindakan, setTindakan] = useState('');
@@ -67,26 +70,42 @@ export default function LaporanKejadianCreateScreen() {
 
     const addItem = useSyncStore((state) => state.addItem);
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (isSubmitting) return;
         setIsSubmitting(true);
+
+        const id = uuidv4();
+        const payload = {
+            nomor, perihal, tempat, tanggal, pukul,
+            korbanNama, korbanAlamat,
+            pelakuNama, pelakuAlamat,
+            saksi1, saksi2, saksi3, saksi4,
+            bukti1, bukti2, bukti3, bukti4,
+            kronologis, kerugian, tindakan
+        };
+
+        // 1. Save locally
         addItem({
-            id: uuidv4(),
+            id,
             moduleId: 'kejadian',
-            data: { nomor, perihal, tempat, tanggal, pukul, korban_nama, korban_alamat, pelaku_nama, pelaku_alamat, saksi_1, saksi_2, saksi_3, saksi_4, bukti_1, bukti_2, bukti_3, bukti_4, kronologis, kerugian, tindakan },
-            sync_status: 1, // 1 = Selesai/Terkirim (No pending queue pattern based on discussion)
+            data: { id, ...payload },
+            sync_status: 0,
             created_at: new Date().toISOString()
         });
 
-        Alert.alert('Sukses', 'Laporan Kejadian berhasil disimpan!', [
-            {
-                text: 'OK', onPress: () => {
-                    router.back();
-                    // Release block on transition
-                    setTimeout(() => setIsSubmitting(false), 500);
-                }
-            }
-        ]);
+        // 2. Navigate back IMMEDIATELY
+        router.back();
+
+        // 3. POST in background
+        try {
+            await api.post('/kejadian', { id, ...payload });
+            useSyncStore.getState().markItemAsSynced(id);
+            console.log('[Kejadian] ✅ Synced');
+        } catch (err) {
+            console.warn('[Kejadian] ❌ Offline:', err);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -134,23 +153,25 @@ export default function LaporanKejadianCreateScreen() {
                             <View className="w-[48%] mb-2">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Tanggal</Text>
                                 <TouchableOpacity
-                                    className="border border-slate-200 rounded-xl px-4 py-3 bg-white"
+                                    className="border border-slate-200 rounded-xl px-4 py-3 bg-white flex-row justify-between items-center"
                                     onPress={() => setShowDatePicker(true)}
                                 >
                                     <Text className="text-slate-800 text-[14px]">
                                         {tanggal || 'DD/MM/YYYY'}
                                     </Text>
+                                    <Calendar size={16} color="#94a3b8" />
                                 </TouchableOpacity>
                             </View>
                             <View className="w-[48%] mb-2">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Pukul</Text>
                                 <TouchableOpacity
-                                    className="border border-slate-200 rounded-xl px-4 py-3 bg-white"
+                                    className="border border-slate-200 rounded-xl px-4 py-3 bg-white flex-row justify-between items-center"
                                     onPress={() => setShowTimePicker(true)}
                                 >
                                     <Text className="text-slate-800 text-[14px]">
                                         {pukul || 'HH:mm'}
                                     </Text>
+                                    <Clock size={16} color="#94a3b8" />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -165,13 +186,13 @@ export default function LaporanKejadianCreateScreen() {
                         <View className="mb-4">
                             <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Nama Korban</Text>
                             <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                <TextInput className="text-slate-800 text-[14px]" placeholder="Masukan nama" value={korban_nama} onChangeText={setKorbanNama} />
+                                <TextInput className="text-slate-800 text-[14px]" placeholder="Masukan nama" value={korbanNama} onChangeText={setKorbanNama} />
                             </View>
                         </View>
                         <View className="mb-2">
                             <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Alamat Korban</Text>
                             <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                <TextInput className="text-slate-800 text-[14px]" placeholder="Masukan alamat lengkap" value={korban_alamat} onChangeText={setKorbanAlamat} />
+                                <TextInput className="text-slate-800 text-[14px]" placeholder="Masukan alamat lengkap" value={korbanAlamat} onChangeText={setKorbanAlamat} />
                             </View>
                         </View>
                     </View>
@@ -185,13 +206,13 @@ export default function LaporanKejadianCreateScreen() {
                         <View className="mb-4">
                             <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Nama Pelaku</Text>
                             <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                <TextInput className="text-slate-800 text-[14px]" placeholder="Masukan nama pelaku" value={pelaku_nama} onChangeText={setPelakuNama} />
+                                <TextInput className="text-slate-800 text-[14px]" placeholder="Masukan nama pelaku" value={pelakuNama} onChangeText={setPelakuNama} />
                             </View>
                         </View>
                         <View className="mb-2">
                             <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Alamat Pelaku</Text>
                             <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                <TextInput className="text-slate-800 text-[14px]" placeholder="Masukan alamat lengkap" value={pelaku_alamat} onChangeText={setPelakuAlamat} />
+                                <TextInput className="text-slate-800 text-[14px]" placeholder="Masukan alamat lengkap" value={pelakuAlamat} onChangeText={setPelakuAlamat} />
                             </View>
                         </View>
                     </View>
@@ -206,25 +227,25 @@ export default function LaporanKejadianCreateScreen() {
                             <View className="w-[48%] mb-4">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Saksi 1</Text>
                                 <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Nama Saksi 1" value={saksi_1} onChangeText={setSaksi1} />
+                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Nama Saksi 1" value={saksi1} onChangeText={setSaksi1} />
                                 </View>
                             </View>
                             <View className="w-[48%] mb-4">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Saksi 2</Text>
                                 <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Nama Saksi 2" value={saksi_2} onChangeText={setSaksi2} />
+                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Nama Saksi 2" value={saksi2} onChangeText={setSaksi2} />
                                 </View>
                             </View>
                             <View className="w-[48%] mb-2">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Saksi 3</Text>
                                 <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Nama Saksi 3" value={saksi_3} onChangeText={setSaksi3} />
+                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Nama Saksi 3" value={saksi3} onChangeText={setSaksi3} />
                                 </View>
                             </View>
                             <View className="w-[48%] mb-2">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Saksi 4</Text>
                                 <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Nama Saksi 4" value={saksi_4} onChangeText={setSaksi4} />
+                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Nama Saksi 4" value={saksi4} onChangeText={setSaksi4} />
                                 </View>
                             </View>
                         </View>
@@ -240,25 +261,25 @@ export default function LaporanKejadianCreateScreen() {
                             <View className="w-[48%] mb-4">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Barang Bukti 1</Text>
                                 <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Bukti 1" value={bukti_1} onChangeText={setBukti1} />
+                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Bukti 1" value={bukti1} onChangeText={setBukti1} />
                                 </View>
                             </View>
                             <View className="w-[48%] mb-4">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Barang Bukti 2</Text>
                                 <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Bukti 2" value={bukti_2} onChangeText={setBukti2} />
+                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Bukti 2" value={bukti2} onChangeText={setBukti2} />
                                 </View>
                             </View>
                             <View className="w-[48%] mb-2">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Barang Bukti 3</Text>
                                 <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Bukti 3" value={bukti_3} onChangeText={setBukti3} />
+                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Bukti 3" value={bukti3} onChangeText={setBukti3} />
                                 </View>
                             </View>
                             <View className="w-[48%] mb-2">
                                 <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Barang Bukti 4</Text>
                                 <View className="border border-slate-200 rounded-xl px-4 py-3 bg-white">
-                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Bukti 4" value={bukti_4} onChangeText={setBukti4} />
+                                    <TextInput className="text-slate-800 text-[14px]" placeholder="Bukti 4" value={bukti4} onChangeText={setBukti4} />
                                 </View>
                             </View>
                         </View>

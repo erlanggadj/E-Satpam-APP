@@ -1,3 +1,5 @@
+import { SyncBadge } from '@/components/ui/SyncBadge';
+import { syncAllPendingData } from '@/hooks/useBackgroundSync';
 import { AfkirRecord, useModuleStore } from '@/store/useModuleStore';
 import { useRouter } from 'expo-router';
 import { ArrowRightCircle, CheckCircle2, Clock, PackageOpen } from 'lucide-react-native';
@@ -30,7 +32,10 @@ export function AfkirCard({ afkir }: AfkirCardProps) {
                 {
                     text: "Iya, Keluar",
                     style: "destructive",
-                    onPress: () => checkoutAfkir(afkir.id)
+                    onPress: () => {
+                        checkoutAfkir(afkir.id);
+                        syncAllPendingData();
+                    }
                 }
             ]
         );
@@ -68,9 +73,12 @@ export function AfkirCard({ afkir }: AfkirCardProps) {
 
             {/* Main Info Area */}
             <View className="flex-1 justify-center relative">
-                <Text className="text-slate-800 text-[18px] font-bold tracking-tight mb-0.5" numberOfLines={1}>
-                    {afkir.plateNumber}
-                </Text>
+                <View className="flex-row justify-between items-start mb-0.5">
+                    <Text className="text-slate-800 text-[18px] font-bold tracking-tight flex-1 mr-2" numberOfLines={1}>
+                        {afkir.plateNumber}
+                    </Text>
+                    <SyncBadge status={afkir.sync_status || 0} business_status={afkir.status} moduleType="AFKIR" />
+                </View>
                 <Text className="text-slate-500 text-[13px] font-medium mb-2">
                     {afkir.buyer} • {afkir.itemType}
                 </Text>

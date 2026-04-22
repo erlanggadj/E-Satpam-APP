@@ -1,3 +1,4 @@
+import { api } from '@/config/api';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useRouter } from 'expo-router';
 import {
@@ -23,17 +24,25 @@ export default function ContainerCreateScreen() {
     const [containerIn, setContainerIn] = useState('');
     const [identityNote, setIdentityNote] = useState('');
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!plateNumber || !driverName || !driverId || !vehicleType || !cargo || !total || !containerIn || !identityNote) {
             Alert.alert('Data Belum Lengkap', 'Seluruh field data registrasi kontainer masuk wajib diisi!');
             return;
         }
 
+        // 1. Save locally
         checkinContainer(plateNumber, driverName, driverId, vehicleType, cargo, total, containerIn, identityNote);
 
-        Alert.alert('Sukses', 'Kendaraan kontainer berhasil didaftarkan masuk!', [
-            { text: 'OK', onPress: () => router.back() }
-        ]);
+        // 2. Navigate back IMMEDIATELY
+        router.back();
+
+        // 3. POST in background
+        try {
+            await api.post('/container', { plateNumber, driverName, driverId, vehicleType, cargo, total, containerIn, identityNote });
+            console.log('[Container] ✅ Synced');
+        } catch (err) {
+            console.warn('[Container] ❌ Offline:', err);
+        }
     };
 
     return (

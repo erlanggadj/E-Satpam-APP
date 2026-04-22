@@ -1,21 +1,49 @@
 import { ContainerCard } from '@/components/features/ContainerCard';
 import { Button } from '@/components/ui/Button';
+import { api } from '@/config/api';
 import { useModuleStore } from '@/store/useModuleStore';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { ArrowLeft, Plus, Search, Truck } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { FlatList, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ContainerIndexScreen() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'MASUK' | 'KELUAR'>('MASUK');
     const [searchQuery, setSearchQuery] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
 
     const allContainers = useModuleStore((state) => state.containers);
+    const isToday = (dateStr: string) =>
+        new Date(dateStr).toDateString() === new Date().toDateString();
 
-    // Sort array so newest shows first
+    const fetchServerData = async () => {
+        try {
+            const res = await api.get('/container');
+            if (res.data?.success && Array.isArray(res.data?.data)) {
+                useModuleStore.getState().syncServerData('containers', res.data.data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch container data', error);
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchServerData();
+        }, [])
+    );
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchServerData();
+        setRefreshing(false);
+    };
+
+    // Dashboard: hanya hari ini saja
     const displayedContainers = allContainers.filter(c => {
+        if (!isToday(c.checkInTime)) return false;
         if (activeTab === 'MASUK' ? c.status !== 'IN' : c.status !== 'OUT') return false;
         if (!searchQuery) return true;
         const q = searchQuery.toLowerCase();
@@ -77,6 +105,9 @@ export default function ContainerIndexScreen() {
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => <ContainerCard container={item} />}
                     contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
+                    }
                     ListEmptyComponent={() => (
                         <View className="flex-1 justify-center items-center py-20 mt-10">
                             <View className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">

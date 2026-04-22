@@ -1,4 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 // --- Data Types ---
 export type ContainerStatus = 'IN' | 'OUT';
@@ -16,6 +18,7 @@ export interface IzinRecord {
     timeOut: string;
     timeIn?: string;
     status: IzinStatus;
+    sync_status: 0 | 1;
 }
 
 export type AfkirStatus = 'IN' | 'OUT';
@@ -34,6 +37,7 @@ export interface AfkirRecord {
     checkInTime: string;
     status: AfkirStatus;
     checkOutTime?: string;
+    sync_status: 0 | 1;
 }
 
 export interface ContainerRecord {
@@ -50,6 +54,7 @@ export interface ContainerRecord {
     status: ContainerStatus;
     containerOut?: string;
     checkOutTime?: string;
+    sync_status: 0 | 1;
 }
 
 export interface KeyRecord {
@@ -63,6 +68,7 @@ export interface KeyRecord {
     takerDivision?: string;
     keterangan?: string;
     takeTime?: string;
+    sync_status: 0 | 1;
 }
 
 export interface MutasiRecord {
@@ -72,6 +78,7 @@ export interface MutasiRecord {
     date: string;
     createdBy: string;
     status: 'ACTIVE' | 'SUBMITTED';
+    sync_status: 0 | 1;
 }
 
 export interface MutasiMemberRecord {
@@ -79,6 +86,7 @@ export interface MutasiMemberRecord {
     mutationId: string;
     guardName: string;
     attendance: 'HADIR' | 'SAKIT' | 'IZIN';
+    sync_status: 0 | 1;
 }
 
 export interface MutasiActivityRecord {
@@ -87,6 +95,7 @@ export interface MutasiActivityRecord {
     guardName: string;
     time: string;
     description: string;
+    sync_status: 0 | 1;
 }
 
 // --- Store Definition ---
@@ -120,6 +129,10 @@ interface ModuleState {
     joinMutation: (mutationId: string, guardName: string, attendance: 'HADIR' | 'SAKIT' | 'IZIN') => void;
     addMutationActivity: (mutationId: string, time: string, description: string, currentLoggedInUser: string) => void;
     submitMutation: (mutationId: string) => void;
+
+    // Sync functions
+    markAsSynced: (type: 'containers' | 'afkirs' | 'izins' | 'keys' | 'mutations' | 'mutationMembers' | 'mutationActivities', id: string) => void;
+    syncServerData: (type: 'containers' | 'afkirs' | 'izins' | 'keys' | 'mutations' | 'mutationMembers' | 'mutationActivities', mappedServerData: any[]) => void;
 }
 
 // Initial Mock Data
@@ -136,6 +149,7 @@ const initialContainers: ContainerRecord[] = [
         identityNote: 'KTP ditahan di pos',
         checkInTime: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
         status: 'IN',
+        sync_status: 1,
     },
     {
         id: 'cnt-2',
@@ -149,8 +163,9 @@ const initialContainers: ContainerRecord[] = [
         identityNote: 'SIM mati, menaruh jaminan STNK',
         checkInTime: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
         status: 'OUT',
-        containerOut: 'TGHU 876543-2', // Taken same container out
+        containerOut: 'TGHU 876543-2',
         checkOutTime: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+        sync_status: 1,
     },
 ];
 
@@ -168,6 +183,7 @@ const initialAfkirs: AfkirRecord[] = [
         identityNote: 'KTP asli disimpan di laci',
         checkInTime: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
         status: 'IN',
+        sync_status: 1,
     }
 ];
 
@@ -181,6 +197,7 @@ const initialIzins: IzinRecord[] = [
         note: 'Mengambil alat sparepart mesin.',
         timeOut: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
         status: 'OUT',
+        sync_status: 1,
     },
     {
         id: 'izn-2',
@@ -192,6 +209,7 @@ const initialIzins: IzinRecord[] = [
         timeOut: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
         timeIn: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
         status: 'RETURNED',
+        sync_status: 1,
     }
 ];
 
@@ -203,6 +221,7 @@ const initialKeys: KeyRecord[] = [
         depositorDivision: 'Staff IT',
         depositTime: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
         status: 'DEPOSITED',
+        sync_status: 1,
     },
     {
         id: 'key-2',
@@ -215,6 +234,7 @@ const initialKeys: KeyRecord[] = [
         takerDivision: 'Logistik Area',
         keterangan: 'Pengecekan stok',
         takeTime: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
+        sync_status: 1,
     },
 ];
 
@@ -226,6 +246,7 @@ const initialMutations: MutasiRecord[] = [
         date: new Date().toISOString(),
         createdBy: 'Budi Santoso',
         status: 'ACTIVE',
+        sync_status: 1,
     },
     {
         id: 'mut-2',
@@ -234,183 +255,218 @@ const initialMutations: MutasiRecord[] = [
         date: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
         createdBy: 'Junaidi',
         status: 'SUBMITTED',
+        sync_status: 1,
     }
 ];
 
 const initialMutationMembers: MutasiMemberRecord[] = [
-    { id: 'mem-1', mutationId: 'mut-1', guardName: 'Budi Santoso', attendance: 'HADIR' },
-    { id: 'mem-2', mutationId: 'mut-1', guardName: 'Agus Subroto', attendance: 'HADIR' },
-    { id: 'mem-3', mutationId: 'mut-2', guardName: 'Junaidi', attendance: 'HADIR' },
-    { id: 'mem-4', mutationId: 'mut-2', guardName: 'Hartoko', attendance: 'SAKIT' },
+    { id: 'mem-1', mutationId: 'mut-1', guardName: 'Budi Santoso', attendance: 'HADIR', sync_status: 1 },
+    { id: 'mem-2', mutationId: 'mut-1', guardName: 'Agus Subroto', attendance: 'HADIR', sync_status: 1 },
+    { id: 'mem-3', mutationId: 'mut-2', guardName: 'Junaidi', attendance: 'HADIR', sync_status: 1 },
+    { id: 'mem-4', mutationId: 'mut-2', guardName: 'Hartoko', attendance: 'SAKIT', sync_status: 1 },
 ];
 
 const initialMutationActivities: MutasiActivityRecord[] = [
-    { id: 'act-1', mutationId: 'mut-1', guardName: 'Budi Santoso', time: '07:00', description: 'Serah terima penjagaan dari Shift Pagi dengan barang inventaris lengkap.' },
-    { id: 'act-2', mutationId: 'mut-1', guardName: 'Agus Subroto', time: '08:30', description: 'Patroli area ring luar, terpantau situasi aman dan terkendali.' },
-    { id: 'act-3', mutationId: 'mut-2', guardName: 'Junaidi', time: '00:00', description: 'Serah terima. Anggota lengkap, inventaris HT dan Senter berfungsi baik.' },
+    { id: 'act-1', mutationId: 'mut-1', guardName: 'Budi Santoso', time: '07:00', description: 'Serah terima penjagaan dari Shift Pagi dengan barang inventaris lengkap.', sync_status: 1 },
+    { id: 'act-2', mutationId: 'mut-1', guardName: 'Agus Subroto', time: '08:30', description: 'Patroli area ring luar, terpantau situasi aman dan terkendali.', sync_status: 1 },
+    { id: 'act-3', mutationId: 'mut-2', guardName: 'Junaidi', time: '00:00', description: 'Serah terima. Anggota lengkap, inventaris HT dan Senter berfungsi baik.', sync_status: 1 },
 ];
 
-export const useModuleStore = create<ModuleState>((set) => ({
-    containers: initialContainers,
-    afkirs: initialAfkirs,
-    izins: initialIzins,
-    keys: initialKeys,
-    mutations: initialMutations,
-    mutationMembers: initialMutationMembers,
-    mutationActivities: initialMutationActivities,
+export const useModuleStore = create<ModuleState>()(
+    persist(
+        (set) => ({
+            containers: initialContainers,
+            afkirs: initialAfkirs,
+            izins: initialIzins,
+            keys: initialKeys,
+            mutations: initialMutations,
+            mutationMembers: initialMutationMembers,
+            mutationActivities: initialMutationActivities,
 
-    createIzin: (name, department, reasonType, destination, note) =>
-        set((state) => ({
-            izins: [{
-                id: `izn-${Date.now()}`,
-                name,
-                department,
-                reasonType,
-                destination,
-                note,
-                timeOut: new Date().toISOString(),
-                status: 'OUT'
-            }, ...state.izins]
-        })),
+            createIzin: (name, department, reasonType, destination, note) =>
+                set((state) => ({
+                    izins: [{
+                        id: `izn-${Date.now()}`,
+                        name,
+                        department,
+                        reasonType,
+                        destination,
+                        note,
+                        timeOut: new Date().toISOString(),
+                        status: 'OUT',
+                        sync_status: 0
+                    }, ...state.izins]
+                })),
 
-    finishIzin: (id) =>
-        set((state) => ({
-            izins: state.izins.map((i) =>
-                i.id === id ? { ...i, status: 'RETURNED', timeIn: new Date().toISOString() } : i
-            ),
-        })),
+            finishIzin: (id) =>
+                set((state) => ({
+                    izins: state.izins.map((i) =>
+                        i.id === id ? { ...i, status: 'RETURNED', timeIn: new Date().toISOString(), sync_status: 0 } : i
+                    ),
+                })),
 
-    checkinAfkir: (plateNumber, driverName, driverId, vehicleType, itemType, total, buyer, approvedBy, identityNote) =>
-        set((state) => ({
-            afkirs: [{
-                id: `afk-${Date.now()}`,
-                plateNumber,
-                driverName,
-                driverId,
-                vehicleType,
-                itemType,
-                total,
-                buyer,
-                approvedBy,
-                identityNote,
-                checkInTime: new Date().toISOString(),
-                status: 'IN'
-            }, ...state.afkirs]
-        })),
+            checkinAfkir: (plateNumber, driverName, driverId, vehicleType, itemType, total, buyer, approvedBy, identityNote) =>
+                set((state) => ({
+                    afkirs: [{
+                        id: `afk-${Date.now()}`,
+                        plateNumber,
+                        driverName,
+                        driverId,
+                        vehicleType,
+                        itemType,
+                        total,
+                        buyer,
+                        approvedBy,
+                        identityNote,
+                        checkInTime: new Date().toISOString(),
+                        status: 'IN',
+                        sync_status: 0
+                    }, ...state.afkirs]
+                })),
 
-    checkoutAfkir: (id) =>
-        set((state) => ({
-            afkirs: state.afkirs.map((a) =>
-                a.id === id ? { ...a, status: 'OUT', checkOutTime: new Date().toISOString() } : a
-            ),
-        })),
+            checkoutAfkir: (id) =>
+                set((state) => ({
+                    afkirs: state.afkirs.map((a) =>
+                        a.id === id ? { ...a, status: 'OUT', checkOutTime: new Date().toISOString(), sync_status: 0 } : a
+                    ),
+                })),
 
-    checkinContainer: (plateNumber, driverName, driverId, vehicleType, cargo, total, containerIn, identityNote) =>
-        set((state) => ({
-            containers: [{
-                id: `cnt-${Date.now()}`,
-                plateNumber,
-                driverName,
-                driverId,
-                vehicleType,
-                cargo,
-                total,
-                containerIn,
-                identityNote,
-                checkInTime: new Date().toISOString(),
-                status: 'IN'
-            }, ...state.containers]
-        })),
+            checkinContainer: (plateNumber, driverName, driverId, vehicleType, cargo, total, containerIn, identityNote) =>
+                set((state) => ({
+                    containers: [{
+                        id: `cnt-${Date.now()}`,
+                        plateNumber,
+                        driverName,
+                        driverId,
+                        vehicleType,
+                        cargo,
+                        total,
+                        containerIn,
+                        identityNote,
+                        checkInTime: new Date().toISOString(),
+                        status: 'IN',
+                        sync_status: 0
+                    }, ...state.containers]
+                })),
 
-    checkoutContainer: (id, containerOut) =>
-        set((state) => ({
-            containers: state.containers.map((c) =>
-                c.id === id ? { ...c, status: 'OUT', containerOut, checkOutTime: new Date().toISOString() } : c
-            ),
-        })),
+            checkoutContainer: (id, containerOut) =>
+                set((state) => ({
+                    containers: state.containers.map((c) =>
+                        c.id === id ? { ...c, status: 'OUT', containerOut, checkOutTime: new Date().toISOString(), sync_status: 0 } : c
+                    ),
+                })),
 
-    depositKey: (keyName, depositorName, depositorDivision) =>
-        set((state) => ({
-            keys: [{
-                id: `key-${Date.now()}`,
-                keyName,
-                depositorName,
-                depositorDivision,
-                depositTime: new Date().toISOString(),
-                status: 'DEPOSITED'
-            }, ...state.keys]
-        })),
+            depositKey: (keyName, depositorName, depositorDivision) =>
+                set((state) => ({
+                    keys: [{
+                        id: `key-${Date.now()}`,
+                        keyName,
+                        depositorName,
+                        depositorDivision,
+                        depositTime: new Date().toISOString(),
+                        status: 'DEPOSITED',
+                        sync_status: 0
+                    }, ...state.keys]
+                })),
 
-    takeKey: (id, takerName, takerDivision, keterangan) =>
-        set((state) => ({
-            keys: state.keys.map((k) =>
-                k.id === id ? { ...k, status: 'TAKEN', takerName, takerDivision, keterangan, takeTime: new Date().toISOString() } : k
-            ),
-        })),
+            takeKey: (id, takerName, takerDivision, keterangan) =>
+                set((state) => ({
+                    keys: state.keys.map((k) =>
+                        k.id === id ? { ...k, status: 'TAKEN', takerName, takerDivision, keterangan, takeTime: new Date().toISOString(), sync_status: 0 } : k
+                    ),
+                })),
 
-    createMutation: (posName, shiftName, createdBy, members = []) =>
-        set((state) => {
-            const newMutationId = `mut-${Date.now()}`;
-            const newMutation: MutasiRecord = {
-                id: newMutationId,
-                posName,
-                shiftName,
-                date: new Date().toISOString(),
-                createdBy,
-                status: 'ACTIVE',
-            };
+            createMutation: (posName, shiftName, createdBy, members = []) =>
+                set((state) => {
+                    const newMutationId = `mut-${Date.now()}`;
+                    const newMutation: MutasiRecord = {
+                        id: newMutationId,
+                        posName,
+                        shiftName,
+                        date: new Date().toISOString(),
+                        createdBy,
+                        status: 'ACTIVE',
+                        sync_status: 0
+                    };
 
-            const newMembers: MutasiMemberRecord[] = members.map((m, index) => ({
-                id: `mem-${Date.now()}-${index}`,
-                mutationId: newMutationId,
-                guardName: m.guardName,
-                attendance: m.attendance
-            }));
+                    const newMembers: MutasiMemberRecord[] = members.map((m, index) => ({
+                        id: `mem-${Date.now()}-${index}`,
+                        mutationId: newMutationId,
+                        guardName: m.guardName,
+                        attendance: m.attendance,
+                        sync_status: 0
+                    }));
 
-            return {
-                mutations: [newMutation, ...state.mutations],
-                mutationMembers: [...newMembers, ...state.mutationMembers]
-            };
+                    return {
+                        mutations: [newMutation, ...state.mutations],
+                        mutationMembers: [...newMembers, ...state.mutationMembers]
+                    };
+                }),
+
+            joinMutation: (mutationId, guardName, attendance) =>
+                set((state) => {
+                    const exists = state.mutationMembers.some(
+                        m => m.mutationId === mutationId && m.guardName === guardName
+                    );
+                    if (exists) return state; // Avoid duplicate joining
+
+                    const newMember: MutasiMemberRecord = {
+                        id: `mem-${Date.now()}`,
+                        mutationId: mutationId,
+                        guardName: guardName,
+                        attendance: attendance,
+                        sync_status: 0
+                    };
+
+                    return {
+                        mutationMembers: [newMember, ...state.mutationMembers]
+                    };
+                }),
+
+
+            addMutationActivity: (mutationId, time, description, currentLoggedInUser) =>
+                set((state) => {
+                    const newActivity: MutasiActivityRecord = {
+                        id: `act-${Date.now()}`,
+                        mutationId,
+                        time,
+                        description,
+                        guardName: currentLoggedInUser,
+                        sync_status: 0
+                    };
+                    return {
+                        mutationActivities: [...state.mutationActivities, newActivity]
+                    };
+                }),
+
+            submitMutation: (mutationId) =>
+                set((state) => ({
+                    mutations: state.mutations.map((m) =>
+                        m.id === mutationId ? { ...m, status: 'SUBMITTED', sync_status: 0 } : m
+                    )
+                })),
+
+            markAsSynced: (type, id) =>
+                set((state) => ({
+                    [type]: (state[type] as any[]).map((item) =>
+                        item.id === id ? { ...item, sync_status: 1 } : item
+                    )
+                })),
+
+            syncServerData: (type, mappedServerData) =>
+                set((state) => {
+                    const existingIds = new Set((state[type] as any[]).map(i => i.id));
+                    const newItems = mappedServerData
+                        .filter(d => !existingIds.has(d.id))
+                        .map(d => ({ ...d, sync_status: 1 }));
+
+                    if (newItems.length === 0) return state;
+                    return { [type]: [...newItems, ...state[type]] };
+                })
         }),
-
-    joinMutation: (mutationId, guardName, attendance) =>
-        set((state) => {
-            const exists = state.mutationMembers.some(
-                m => m.mutationId === mutationId && m.guardName === guardName
-            );
-            if (exists) return state; // Avoid duplicate joining
-
-            const newMember: MutasiMemberRecord = {
-                id: `mem-${Date.now()}`,
-                mutationId: mutationId,
-                guardName: guardName,
-                attendance: attendance
-            };
-
-            return {
-                mutationMembers: [newMember, ...state.mutationMembers]
-            };
-        }),
-
-
-    addMutationActivity: (mutationId, time, description, currentLoggedInUser) =>
-        set((state) => {
-            const newActivity: MutasiActivityRecord = {
-                id: `act-${Date.now()}`,
-                mutationId,
-                time,
-                description,
-                guardName: currentLoggedInUser
-            };
-            return {
-                mutationActivities: [...state.mutationActivities, newActivity]
-            };
-        }),
-
-    submitMutation: (mutationId) =>
-        set((state) => ({
-            mutations: state.mutations.map((m) =>
-                m.id === mutationId ? { ...m, status: 'SUBMITTED' } : m
-            )
-        }))
-}));
+        {
+            name: 'module-storage',
+            storage: createJSONStorage(() => AsyncStorage),
+        }
+    )
+);

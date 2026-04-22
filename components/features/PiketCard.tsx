@@ -1,7 +1,8 @@
 import { ModuleIcon } from '@/components/features/ModuleIcon';
+import { SyncBadge } from '@/components/ui/SyncBadge';
 import { SyncItem } from '@/store/useSyncStore';
 import { useRouter } from 'expo-router';
-import { CheckCircle2, Clock, SearchCheck, UserCircle2 } from 'lucide-react-native';
+import { SearchCheck, UserCircle2 } from 'lucide-react-native';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
@@ -39,17 +40,7 @@ export function PiketCard({ item }: PiketCardProps) {
                 </View>
 
                 {/* SYNC STATUS BADGE */}
-                {isPending ? (
-                    <View className="bg-orange-50 px-2 py-1 rounded border border-orange-100 flex-row items-center mt-1">
-                        <Clock size={10} color="#ea580c" style={{ marginRight: 4 }} />
-                        <Text className="text-orange-600 text-[9px] font-bold uppercase tracking-widest">Pending</Text>
-                    </View>
-                ) : (
-                    <View className="bg-emerald-50 px-2 py-1 rounded border border-emerald-100 flex-row items-center mt-1">
-                        <CheckCircle2 size={10} color="#10b981" style={{ marginRight: 4 }} />
-                        <Text className="text-emerald-600 text-[9px] font-bold uppercase tracking-widest">Terkirim</Text>
-                    </View>
-                )}
+                <SyncBadge status={item.sync_status || 0} moduleType="PIKET" />
             </View>
 
             {/* Content: Petugas Highlight & Hasil */}

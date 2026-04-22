@@ -1,3 +1,5 @@
+import { SyncBadge } from '@/components/ui/SyncBadge';
+import { syncAllPendingData } from '@/hooks/useBackgroundSync';
 import { IzinRecord, useModuleStore } from '@/store/useModuleStore';
 import { useRouter } from 'expo-router';
 import { ArrowRightCircle, BriefcaseBusiness, CheckCircle2, Clock, MapPin, User } from 'lucide-react-native';
@@ -30,7 +32,10 @@ export function IzinCard({ izin }: IzinCardProps) {
                 {
                     text: "Iya, Masuk",
                     style: "default",
-                    onPress: () => finishIzin(izin.id)
+                    onPress: () => {
+                        finishIzin(izin.id);
+                        syncAllPendingData();
+                    }
                 }
             ]
         );
@@ -72,9 +77,12 @@ export function IzinCard({ izin }: IzinCardProps) {
 
             {/* Main Info Area */}
             <View className="flex-1 justify-center relative">
-                <Text className="text-slate-800 text-[17px] font-bold tracking-tight mb-0.5" numberOfLines={1}>
-                    {izin.name}
-                </Text>
+                <View className="flex-row justify-between items-start mb-0.5">
+                    <Text className="text-slate-800 text-[17px] font-bold tracking-tight flex-1 mr-2" numberOfLines={1}>
+                        {izin.name}
+                    </Text>
+                    <SyncBadge status={izin.sync_status || 0} business_status={izin.status} moduleType="IZIN" />
+                </View>
 
                 <View className="flex-row items-center mb-2">
                     <MapPin size={11} color="#64748b" style={{ marginRight: 4 }} />

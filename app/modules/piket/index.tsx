@@ -1,20 +1,48 @@
 import { PiketCard } from '@/components/features/PiketCard';
 import { Button } from '@/components/ui/Button';
+import { api } from '@/config/api';
 import { useSyncStore } from '@/store/useSyncStore';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { ArrowLeft, MapPin, Plus, Search } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { FlatList, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PiketIndexScreen() {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
 
     const allItems = useSyncStore((state) => state.items);
 
-    // Filter, sort by newest first
-    const rawItems = allItems.filter(item => item.moduleId === 'piket').reverse();
+    const isToday = (dateStr: string) =>
+        new Date(dateStr).toDateString() === new Date().toDateString();
+
+    const fetchServerData = async () => {
+        try {
+            const res = await api.get('/piket');
+            if (res.data?.success && Array.isArray(res.data?.data)) {
+                useSyncStore.getState().syncServerData('piket', res.data.data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch piket data', error);
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchServerData();
+        }, [])
+    );
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchServerData();
+        setRefreshing(false);
+    };
+
+    // Filter: hanya piket + hari ini saja (dashboard view)
+    const rawItems = allItems.filter(item => item.moduleId === 'piket' && isToday(item.created_at)).reverse();
     const piketItems = rawItems.filter(item => {
         if (!searchQuery) return true;
         const q = searchQuery.toLowerCase();
@@ -58,6 +86,9 @@ export default function PiketIndexScreen() {
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => <PiketCard item={item} />}
                     contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
+                    }
                     ListEmptyComponent={() => (
                         <View className="flex-1 justify-center items-center py-20 mt-10">
                             <View className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">

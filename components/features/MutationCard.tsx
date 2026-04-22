@@ -1,3 +1,4 @@
+import { SyncBadge } from '@/components/ui/SyncBadge';
 import { useAuthStore } from '@/store/useAuthStore';
 import { MutasiRecord, useModuleStore } from '@/store/useModuleStore';
 import { useRouter } from 'expo-router';
@@ -68,13 +69,11 @@ export function MutationCard({ mutation, onAfterSubmit }: MutationCardProps) {
                             </View>
                         </View>
                         {isActive ? (
-                            <View className="bg-orange-50 px-2 py-1 rounded border border-orange-100">
-                                <Text className="text-orange-600 text-[10px] font-bold uppercase tracking-widest">Active</Text>
+                            <View className="bg-blue-50 px-2 py-1 rounded border border-blue-100">
+                                <Text className="text-blue-600 text-[10px] font-bold uppercase tracking-widest">Shift Aktif</Text>
                             </View>
                         ) : (
-                            <View className="bg-slate-100 px-2 py-1 rounded border border-slate-200">
-                                <Text className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">Submitted</Text>
-                            </View>
+                            <SyncBadge status={mutation.sync_status || 0} business_status={mutation.status} moduleType="MUTASI" />
                         )}
                     </View>
                 </TouchableOpacity>

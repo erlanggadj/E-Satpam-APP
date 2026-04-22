@@ -1,3 +1,4 @@
+import { api } from '@/config/api';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useRouter } from 'expo-router';
 import { ArrowLeft, Image as ImageIcon, Info, Plus } from 'lucide-react-native';
@@ -13,16 +14,25 @@ export default function DepositKeyScreen() {
     const [depositorName, setDepositorName] = useState('');
     const [depositorDivision, setDepositorDivision] = useState('');
 
-    const handleSimpan = () => {
+    const handleSimpan = async () => {
         if (!keyName || !depositorName) {
             Alert.alert('Error', 'Nama kunci dan nama penyerah wajib diisi!');
             return;
         }
 
+        // 1. Save locally
         depositKey(keyName, depositorName, depositorDivision);
-        Alert.alert('Sukses', 'Kunci berhasil dititipkan!', [
-            { text: 'OK', onPress: () => router.back() }
-        ]);
+
+        // 2. Navigate back IMMEDIATELY
+        router.back();
+
+        // 3. POST in background
+        try {
+            await api.post('/keylog', { keyName, depositorName, depositorDivision });
+            console.log('[Keylog] ✅ Synced');
+        } catch (err) {
+            console.warn('[Keylog] ❌ Offline:', err);
+        }
     };
 
     return (

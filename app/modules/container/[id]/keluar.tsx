@@ -1,3 +1,4 @@
+import { syncAllPendingData } from '@/hooks/useBackgroundSync';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Box } from 'lucide-react-native';
@@ -32,7 +33,8 @@ export default function ContainerKeluarScreen() {
         }
 
         checkoutContainer(containerData.id, containerOut);
-        Alert.alert('Sukses', 'Kontainer berhasil tercatat keluar!', [
+        syncAllPendingData();
+        Alert.alert('Sukses', 'Kontainer berhasil tercatat keluar, mencoba sinkronisasi...', [
             { text: 'OK', onPress: () => router.back() }
         ]);
     };

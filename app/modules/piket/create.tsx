@@ -1,3 +1,4 @@
+import { api } from '@/config/api';
 import { useSyncStore } from '@/store/useSyncStore';
 import { Stack, useRouter } from 'expo-router';
 import {
@@ -25,24 +26,39 @@ export default function LaporanPiketCreateScreen() {
     const [keterangan, setKeterangan] = useState('');
 
     const addItem = useSyncStore((state) => state.addItem);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
+        if (isSubmitting) return;
         if (!lokasi || !petugas || !hasil) {
             Alert.alert('Data Belum Lengkap', 'Lokasi, Nama Petugas, dan Hasil Visit wajib diisi!');
             return;
         }
+        setIsSubmitting(true);
 
+        const id = uuidv4();
+        const payload = { lokasi, petugas, hasil, keterangan };
+
+        // 1. Save locally
         addItem({
-            id: uuidv4(),
+            id,
             moduleId: 'piket',
-            data: { lokasi, petugas, hasil, keterangan },
-            sync_status: 0, // 0 = Pending/Offline menunggu sinkronisasi
+            data: { id, ...payload },
+            sync_status: 0,
             created_at: new Date().toISOString()
         });
 
-        Alert.alert('Sukses', 'Laporan Piket Staff berhasil tersimpan!', [
-            { text: 'OK', onPress: () => router.back() }
-        ]);
+        // 2. Navigate back IMMEDIATELY
+        router.back();
+
+        // 3. POST in background
+        try {
+            await api.post('/piket', { id, ...payload });
+            useSyncStore.getState().markItemAsSynced(id);
+            console.log('[Piket] ✅ Synced');
+        } catch (err) {
+            console.warn('[Piket] ❌ Offline, tersimpan lokal:', err);
+        }
     };
 
     return (
