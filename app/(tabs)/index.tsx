@@ -10,10 +10,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DailyBriefingCard } from '@/components/features/DailyBriefingCard';
 import { MODULES } from '@/constants/MockData';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const nameSatpam = 'Erlanggs Dj';
+  const { user } = useAuthStore();
+
+  const nameSatpam = user?.name || 'Loading...';
+  const jabatan = user?.jabatan || 'Anggota Satpam';
 
   return (
     <View className="flex-1 bg-white">
@@ -62,7 +66,7 @@ export default function HomeScreen() {
 
               <View className="flex-1 justify-center">
                 <Text className="text-white text-[15px] font-bold tracking-wide">{nameSatpam}</Text>
-                <Text className="text-gray-300 text-[11px] font-medium mb-1.5">Kepala Satpam</Text>
+                <Text className="text-gray-300 text-[11px] font-medium mb-1.5">{jabatan}</Text>
                 <View className="flex-row items-center">
                   <View className="bg-[#F97316] px-[6px] py-[2px] rounded-md mr-2">
                     <Text className="text-[#3b1704] text-[9px] font-bold">ONLINE</Text>
@@ -107,7 +111,7 @@ export default function HomeScreen() {
               const color = iconColors[item.id] || '#64748B';
 
               return (
-                <Link href={`/modules/${item.id}`} asChild key={item.id}>
+                <Link href={`/modules/${item.id}` as any} asChild key={item.id}>
                   <Pressable className="w-[28%] items-center mb-4">
                     {({ pressed }) => (
                       <>

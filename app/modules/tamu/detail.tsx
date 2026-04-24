@@ -1,7 +1,10 @@
+import { Skeleton } from '@/components/ui/Skeleton';
+import { api } from '@/config/api';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useSyncStore } from '@/store/useSyncStore';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, CheckCircle2, Clock, FileText } from 'lucide-react-native';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,9 +14,58 @@ export default function GenericModuleDetailScreen() {
     const id = 'tamu'; // Ex-Generic Route Fallback
     const items = useSyncStore(state => state.items);
 
-    const record = items.find(i => i.id === itemId);
+    const record = items.find((i: any) => String(i.id) === String(itemId));
+    const { user } = useAuthStore();
+    const [fetchedRecord, setFetchedRecord] = useState<any>(null);
+    const [isLoadingFetch, setIsLoadingFetch] = useState(false);
+    const [isApproving, setIsApproving] = useState(false);
 
-    if (!record) {
+    useEffect(() => {
+        if (!record && itemId && itemId !== 'undefined') {
+            setIsLoadingFetch(true);
+            api.get(`/tamu/${itemId}`).then(res => {
+                const data = res.data.data;
+                setFetchedRecord(data);
+                useSyncStore.getState().syncServerData('tamu', [data]);
+                setIsLoadingFetch(false);
+            }).catch(err => {
+                console.error(err);
+                setIsLoadingFetch(false);
+            });
+        }
+    }, [record, itemId]);
+
+    const activeItem = record || (fetchedRecord ? {
+        id: fetchedRecord.id,
+        created_at: fetchedRecord.createdAt,
+        sync_status: 1,
+        status: fetchedRecord.status,
+        data: Object.fromEntries(
+            Object.entries(fetchedRecord).filter(([k]) => !['id', 'status', 'createdAt', 'updatedAt', 'createdBy'].includes(k))
+        )
+    } : null);
+
+    const source = (useLocalSearchParams() as any)?.source;
+    const canApprove = source === 'history' && (user?.role === 'ADMIN' || user?.role === 'SUPERVISOR' || user?.jabatan === 'KAPAMWIL') && (activeItem as any)?.status !== 'APPROVED';
+
+    const handleApprove = async () => {
+        try {
+            setIsApproving(true);
+            await api.patch(`/history/tamu/${itemId}/approve`);
+            useSyncStore.getState().approveItem(itemId as string, 'tamu');
+            // @ts-ignore
+            if (typeof global !== 'undefined' && global.alert) global.alert('Laporan berhasil divalidasi');
+            router.back();
+        } catch (error) {
+            console.error('Failed to validate', error);
+        } finally {
+            setIsApproving(false);
+        }
+    };
+
+    // Remove early loading return to keep header visible
+
+    if (!activeItem && !isLoadingFetch) {
         return (
             <SafeAreaView className="flex-1 bg-slate-50 flex-col items-center justify-center">
                 <Text className="text-gray-500 font-bold mb-4">Catatan tidak ditemukan!</Text>
@@ -30,8 +82,8 @@ export default function GenericModuleDetailScreen() {
         return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' - ' + d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
     };
 
-    // Construct array of mapped values
-    const details = Object.entries(record.data).filter(([key, value]) => value !== '' && key !== 'id');
+    // Construct array of mapped values safely
+    const details = Object.entries(activeItem?.data || {}).filter(([key, value]) => value !== '' && key !== 'id' && value !== null);
 
     return (
         <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
@@ -56,7 +108,7 @@ export default function GenericModuleDetailScreen() {
                             </View>
                             <View>
                                 <Text className="text-slate-500 text-[11px] font-bold uppercase tracking-widest">{id}</Text>
-                                <Text className="text-slate-800 font-bold text-[14px]">ID: {record.id.slice(0, 8)}</Text>
+                                {activeItem?.id ? <Text className="text-slate-800 font-bold text-[14px]">ID: {activeItem.id.slice(0, 8)}</Text> : <Skeleton width={100} height={14} style={{ marginTop: 4 }} />}
                             </View>
                         </View>
                         <View className="bg-emerald-50 px-2 py-1 rounded border border-emerald-100">
@@ -66,12 +118,14 @@ export default function GenericModuleDetailScreen() {
 
                     <View className="flex-row items-center mb-2">
                         <Clock size={16} color="#94a3b8" style={{ marginRight: 10 }} />
-                        <Text className="text-slate-600 text-[13px]">{formatDate(record.created_at)}</Text>
+                        {activeItem?.created_at ? <Text className="text-slate-600 text-[13px]">{formatDate(activeItem.created_at)}</Text> : <Skeleton width={120} height={14} />}
                     </View>
 
                     <View className="flex-row items-center">
                         <CheckCircle2 size={16} color="#10b981" style={{ marginRight: 10 }} />
-                        <Text className="text-slate-600 text-[13px]">Status Sinkronisasi : {record.sync_status === 1 ? 'Sudah Dikirim' : 'Pending'}</Text>
+                        {activeItem?.sync_status !== undefined ? (
+                            <Text className="text-slate-600 text-[13px]">Status Sinkronisasi : {activeItem.sync_status === 1 ? 'Sudah Dikirim' : 'Pending'}</Text>
+                        ) : <Skeleton width={150} height={14} />}
                     </View>
                 </View>
 
@@ -79,7 +133,17 @@ export default function GenericModuleDetailScreen() {
                 <Text className="text-[13px] font-bold text-slate-800 tracking-tight mb-3 ml-1">DATA TERCATAT</Text>
 
                 <View className="bg-white rounded-2xl p-5 mb-8 shadow-sm border border-slate-100">
-                    {details.length === 0 ? (
+                    {isLoadingFetch ? (
+                        <View>
+                            {[1, 2, 3, 4].map(i => (
+                                <View key={i} className="mb-4 pb-4 border-b border-slate-100 last:border-0">
+                                    <Skeleton width="30%" height={12} style={{ marginBottom: 8 }} />
+                                    <Skeleton width="100%" height={16} />
+                                </View>
+                            ))}
+                        </View>
+                    ) : details.length === 0 ? (
+
                         <Text className="text-slate-400 italic">Formulir kosong tanpa input.</Text>
                     ) : (
                         details.map(([key, value], idx) => {
@@ -100,6 +164,21 @@ export default function GenericModuleDetailScreen() {
                 </View>
 
             </ScrollView>
+
+            {/* Approval Button for KAPAMWIL */}
+            {canApprove && (
+                <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 pt-4 pb-6 shadow-[0_-4px_6px_rgba(0,0,0,0.05)]">
+                    <TouchableOpacity
+                        className={`w-full ${isApproving ? 'bg-emerald-300' : 'bg-orange-500'} py-4 rounded-xl items-center justify-center shadow-sm`}
+                        onPress={handleApprove}
+                        disabled={isApproving}
+                    >
+                        <Text className="text-white font-bold tracking-wide text-[14px]">
+                            {isApproving ? 'MEMPROSES...' : 'VALIDASI / APPROVE'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </SafeAreaView>
     );
 }

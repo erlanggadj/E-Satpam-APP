@@ -1,4 +1,5 @@
 import { api } from '@/config/api';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useModuleStore } from '@/store/useModuleStore';
 import { useSyncStore } from '@/store/useSyncStore';
 import NetInfo from '@react-native-community/netinfo';
@@ -19,6 +20,13 @@ const syncBatch = async (moduleName: string, records: any[]) => {
 };
 
 export const syncAllPendingData = async () => {
+    // 0. Ensure user is actually authenticated before syncing
+    const { isAuthenticated } = useAuthStore.getState();
+    if (!isAuthenticated) {
+        console.log("[Sync] Paused. User is not authenticated.");
+        return;
+    }
+
     console.log("[Sync] Starting background sync to backend...");
 
     // 1. Sync `useSyncStore` (Generic Modules: tamu, kejadian, piket)
@@ -64,8 +72,8 @@ export const syncAllPendingData = async () => {
             // For mutasi, we need to attach members and activities
             let payloadRecords = pending;
             if (storeKey === 'mutations') {
-                const members = moduleState.mutationMembers || [];
-                const activities = moduleState.mutationActivities || [];
+                const members = Object.values(moduleState.mutationMembers).flat();
+                const activities = Object.values(moduleState.mutationActivities).flat();
                 payloadRecords = pending.map(m => ({
                     ...m,
                     members: members.filter(mem => mem.mutationId === m.id),
@@ -91,7 +99,28 @@ export const syncAllPendingData = async () => {
         }
     }
 
-    if (allPendingGeneric.length === 0 && totalCoreSynced === 0) {
+    // 3. Standalone Mutasi Activities Syncing
+    const allActivitiesArray = Object.values(moduleState.mutationActivities).flat();
+    const pendingActivities = allActivitiesArray.filter(a => a.sync_status === 0);
+    if (pendingActivities.length > 0) {
+        console.log(`[Sync] Syncing ${pendingActivities.length} standalone activities...`);
+        for (const act of pendingActivities) {
+            try {
+                await api.post(`/mutasi/${act.mutationId}/activities`, {
+                    time: act.time,
+                    description: act.description,
+                    guardName: act.guardName
+                });
+                moduleState.markAsSynced('mutationActivities', act.id);
+                console.log(`[Sync] ✅ Success activity: ${act.id}`);
+            } catch (error) {
+                console.error(`[Sync] Failed activity sync:`, error);
+            }
+        }
+    }
+
+
+    if (allPendingGeneric.length === 0 && totalCoreSynced === 0 && pendingActivities.length === 0) {
         console.log("[Sync] No pending data found. Sync complete.");
     } else {
         console.log(`[Sync] Finished syncing routine.`);

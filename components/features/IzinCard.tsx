@@ -1,5 +1,6 @@
 import { SyncBadge } from '@/components/ui/SyncBadge';
 import { syncAllPendingData } from '@/hooks/useBackgroundSync';
+import { useAuthStore } from '@/store/useAuthStore';
 import { IzinRecord, useModuleStore } from '@/store/useModuleStore';
 import { useRouter } from 'expo-router';
 import { ArrowRightCircle, BriefcaseBusiness, CheckCircle2, Clock, MapPin, User } from 'lucide-react-native';
@@ -13,6 +14,8 @@ interface IzinCardProps {
 export function IzinCard({ izin }: IzinCardProps) {
     const router = useRouter();
     const finishIzin = useModuleStore(state => state.finishIzin);
+    const user = useAuthStore(state => state.user);
+    const canCreate = user?.jabatan !== 'KAPAMWIL';
     const isNavigating = React.useRef(false);
 
     const handleDetailPress = () => {
@@ -110,7 +113,8 @@ export function IzinCard({ izin }: IzinCardProps) {
                 </View>
 
                 {/* Action Button */}
-                {izin.status === 'OUT' && (
+                {izin.status === 'OUT' && canCreate && (
+
                     <TouchableOpacity
                         className="mt-3 py-2.5 px-4 rounded-xl border border-sky-500 bg-sky-50 flex-row justify-center items-center active:bg-sky-100"
                         activeOpacity={0.8}

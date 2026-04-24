@@ -16,6 +16,8 @@ interface SyncStore {
     syncItems: () => void;
     markItemAsSynced: (id: string) => void;
     syncServerData: (moduleId: string, serverData: any[]) => void;
+    approveItem: (id: string, moduleId: string) => void;
+    clearAll: () => void;
 }
 
 // Global placeholder state for our generic module flow
@@ -55,6 +57,15 @@ export const useSyncStore = create<SyncStore>()(
                     if (newItems.length === 0) return state; // no state change
                     return { items: [...newItems, ...state.items] };
                 }),
+            approveItem: (id: string, moduleId: string) =>
+                set((state) => ({
+                    items: state.items.map((item) =>
+                        item.id === id && item.moduleId === moduleId
+                            ? { ...item, data: { ...item.data, status: 'APPROVED' } }
+                            : item
+                    ),
+                })),
+            clearAll: () => set({ items: [] })
         }),
         {
             name: 'sync-storage',

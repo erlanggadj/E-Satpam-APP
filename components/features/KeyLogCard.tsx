@@ -1,4 +1,5 @@
 import { SyncBadge } from '@/components/ui/SyncBadge';
+import { useAuthStore } from '@/store/useAuthStore';
 import { KeyRecord } from '@/store/useModuleStore';
 import { useRouter } from 'expo-router';
 import { Clock, Key, UserCheck } from 'lucide-react-native';
@@ -11,6 +12,8 @@ interface KeyLogCardProps {
 
 export function KeyLogCard({ keyRecord }: KeyLogCardProps) {
     const router = useRouter();
+    const user = useAuthStore(state => state.user);
+    const canCreate = user?.jabatan !== 'KAPAMWIL';
 
     const handleTakeKey = () => {
         router.push(`/modules/keylog/${keyRecord.id}/ambil` as any);
@@ -61,20 +64,28 @@ export function KeyLogCard({ keyRecord }: KeyLogCardProps) {
                 ) : null}
             </View>
 
-            {keyRecord.status === 'DEPOSITED' ? (
+            {keyRecord.status === 'DEPOSITED' && canCreate ? (
+
                 <View className="flex-row space-x-3 gap-3 pt-3 mt-1">
-                    <TouchableOpacity
-                        className="flex-1 bg-[#ea580c] py-2.5 rounded-xl flex-row items-center justify-center shadow-sm active:bg-orange-600"
-                        activeOpacity={0.8}
-                        onPress={(e) => {
-                            e.stopPropagation();
-                            handleTakeKey();
-                        }}
-                    >
-                        <Text className="text-white font-bold text-[13px] uppercase">Ambil Kunci</Text>
-                    </TouchableOpacity>
+                    {keyRecord.sync_status === 0 ? (
+                        <View className="flex-1 bg-slate-200 py-2.5 rounded-xl flex-row items-center justify-center">
+                            <Text className="text-slate-400 font-bold text-[13px] uppercase">Menunggu Sinkronisasi...</Text>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            className="flex-1 bg-[#ea580c] py-2.5 rounded-xl flex-row items-center justify-center shadow-sm active:bg-orange-600"
+                            activeOpacity={0.8}
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                handleTakeKey();
+                            }}
+                        >
+                            <Text className="text-white font-bold text-[13px] uppercase">Ambil Kunci</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             ) : null}
+
         </TouchableOpacity>
     );
 }

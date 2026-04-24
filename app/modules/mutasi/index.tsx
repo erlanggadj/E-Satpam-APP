@@ -1,5 +1,7 @@
 import { MutationCard } from '@/components/features/MutationCard';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { api } from '@/config/api';
+import { useAuthStore } from '@/store/useAuthStore';
 import { MutasiRecord, useModuleStore } from '@/store/useModuleStore';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { ArrowLeft, Inbox, Plus } from 'lucide-react-native';
@@ -7,6 +9,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
     FlatList,
     RefreshControl,
+    ScrollView,
     Text,
     TextInput,
     TouchableOpacity,
@@ -16,18 +19,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function MutasiIndexScreen() {
     const router = useRouter();
+    const { user } = useAuthStore();
+    const isManagement = user?.role === 'ADMIN' || user?.jabatan === 'KAPAMWIL';
+    const canCreate = user?.role === 'ADMIN' || (user?.role === 'SATPAM' && user?.jabatan !== 'KAPAMWIL');
     const mutations = useModuleStore(state => state.mutations);
     const createMutation = useModuleStore(state => state.createMutation);
     const [activeTab, setActiveTab] = useState<'ACTIVE' | 'SUBMITTED'>('ACTIVE');
     const [searchQuery, setSearchQuery] = useState('');
     const [refreshing, setRefreshing] = useState(false);
+    const hasFetchedOnce = React.useRef(mutations.length > 0); // true if cache already has data
+    const [isLoading, setIsLoading] = useState(!hasFetchedOnce.current);
+
 
     const filteredMutations = useMemo(() => {
         const isToday = (dateStr: string) =>
             new Date(dateStr).toDateString() === new Date().toDateString();
 
         return mutations.filter(m => {
-            if (!isToday(m.date)) return false; // Dashboard: hari ini saja
+            if (!isManagement && !isToday(m.date)) return false; // Dashboard: hari ini saja (kecuali Management)
             if (m.status !== activeTab) return false;
             if (!searchQuery) return true;
             const q = searchQuery.toLowerCase();
@@ -39,26 +48,26 @@ export default function MutasiIndexScreen() {
 
     const fetchServerData = async () => {
         try {
-            const res = await api.get('/mutasi'); // ?history=false defaults to today as per PRD
+            const res = await api.get(isManagement ? '/mutasi?history=true' : '/mutasi'); // ?history=false defaults to today as per PRD
             if (res.data?.success && Array.isArray(res.data?.data)) {
-                const fetchedMutations: any[] = [];
-                const fetchedMembers: any[] = [];
-                const fetchedActivities: any[] = [];
+                const mutationsList = res.data.data;
+                const membersList: any[] = [];
+                const activitiesList: any[] = [];
 
-                res.data.data.forEach((m: any) => {
-                    const { members, activities, createdAt, updatedAt, ...rest } = m;
-                    fetchedMutations.push({ ...rest, date: rest.date || createdAt });
-                    if (members) fetchedMembers.push(...members);
-                    if (activities) fetchedActivities.push(...activities);
+                mutationsList.forEach((m: any) => {
+                    if (Array.isArray(m.members)) membersList.push(...m.members);
+                    if (Array.isArray(m.activities)) activitiesList.push(...m.activities);
                 });
 
                 const store = useModuleStore.getState();
-                if (fetchedMutations.length > 0) store.syncServerData('mutations', fetchedMutations);
-                if (fetchedMembers.length > 0) store.syncServerData('mutationMembers', fetchedMembers);
-                if (fetchedActivities.length > 0) store.syncServerData('mutationActivities', fetchedActivities);
+                if (mutationsList.length > 0) store.syncServerData('mutations', mutationsList);
+                if (membersList.length > 0) store.syncServerData('mutationMembers', membersList);
+                if (activitiesList.length > 0) store.syncServerData('mutationActivities', activitiesList);
             }
         } catch (error) {
             console.error('Failed to fetch mutasi data', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -77,6 +86,21 @@ export default function MutasiIndexScreen() {
     const renderItem = useCallback(({ item }: { item: MutasiRecord }) => {
         return <MutationCard mutation={item} onAfterSubmit={() => setActiveTab('SUBMITTED')} />;
     }, []);
+
+    const renderSkeletonCard = () => (
+        <View className="bg-white rounded-2xl p-4 mb-3 border border-gray-100 shadow-sm">
+            <View className="flex-row items-center mb-3">
+                <Skeleton width={36} height={36} borderRadius={18} />
+                <View className="ml-3 flex-1">
+                    <Skeleton width="60%" height={14} style={{ marginBottom: 6 }} />
+                    <Skeleton width="40%" height={11} />
+                </View>
+                <Skeleton width={60} height={20} borderRadius={10} />
+            </View>
+            <Skeleton width="100%" height={12} style={{ marginBottom: 4 }} />
+            <Skeleton width="70%" height={12} />
+        </View>
+    );
 
     const EmptyState = useCallback(() => (
         <View className="py-20 items-center justify-center">
@@ -133,25 +157,33 @@ export default function MutasiIndexScreen() {
                 </View>
             </View>
 
-            <FlatList
-                data={filteredMutations}
-                keyExtractor={(item) => item.id}
-                renderItem={renderItem}
-                contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={EmptyState}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
-                }
-            />
+            {isLoading ? (
+                <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+                    {Array.from({ length: 5 }).map((_, i) => <View key={`sk-${i}`}>{renderSkeletonCard()}</View>)}
+                </ScrollView>
+            ) : (
+                <FlatList
+                    data={filteredMutations}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderItem}
+                    contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+                    showsVerticalScrollIndicator={false}
+                    ListEmptyComponent={EmptyState}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
+                    }
+                />
+            )}
 
-            <TouchableOpacity
-                className="absolute bottom-6 right-6 w-14 h-14 bg-orange-500 rounded-full items-center justify-center shadow-lg"
-                onPress={() => router.push('/modules/mutasi/create')}
-                activeOpacity={0.8}
-            >
-                <Plus size={24} color="#fff" />
-            </TouchableOpacity>
+            {canCreate && (
+                <TouchableOpacity
+                    className="absolute bottom-6 right-6 w-14 h-14 bg-orange-500 rounded-full items-center justify-center shadow-lg"
+                    onPress={() => router.push('/modules/mutasi/create')}
+                    activeOpacity={0.8}
+                >
+                    <Plus size={24} color="#fff" />
+                </TouchableOpacity>
+            )}
 
         </SafeAreaView>
     );

@@ -1,20 +1,26 @@
 import { AfkirCard } from '@/components/features/AfkirCard';
 import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { api } from '@/config/api';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { ArrowLeft, PackageOpen, Plus, Search } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
-import { FlatList, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function AfkirIndexScreen() {
     const router = useRouter();
+    const { user } = useAuthStore();
+    const canCreate = user?.role === 'ADMIN' || (user?.role === 'SATPAM' && user?.jabatan !== 'KAPAMWIL');
     const [activeTab, setActiveTab] = useState<'MASUK' | 'KELUAR'>('MASUK');
     const [searchQuery, setSearchQuery] = useState('');
-    const [refreshing, setRefreshing] = useState(false);
-
     const allAfkirs = useModuleStore((state) => state.afkirs);
+    const [refreshing, setRefreshing] = useState(false);
+    const hasFetchedOnce = React.useRef(allAfkirs.length > 0);
+    const [isLoading, setIsLoading] = useState(!hasFetchedOnce.current);
+
     const isToday = (dateStr: string) =>
         new Date(dateStr).toDateString() === new Date().toDateString();
 
@@ -26,6 +32,8 @@ export default function AfkirIndexScreen() {
             }
         } catch (error) {
             console.error('Failed to fetch afkir data', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -51,6 +59,23 @@ export default function AfkirIndexScreen() {
             c.driverName.toLowerCase().includes(q) ||
             c.itemType.toLowerCase().includes(q);
     });
+
+    const renderSkeletonCard = () => (
+        <View className="bg-white rounded-2xl p-4 mx-5 mb-3 border border-gray-100 shadow-sm">
+            <View className="flex-row items-center mb-3">
+                <Skeleton width={40} height={40} borderRadius={20} />
+                <View className="ml-3 flex-1">
+                    <Skeleton width="55%" height={14} style={{ marginBottom: 6 }} />
+                    <Skeleton width="40%" height={11} />
+                </View>
+                <Skeleton width={60} height={22} borderRadius={11} />
+            </View>
+            <View className="flex-row">
+                <Skeleton width="30%" height={11} style={{ marginRight: 8 }} />
+                <Skeleton width="40%" height={11} />
+            </View>
+        </View>
+    );
 
     return (
         <View className="flex-1 bg-slate-50">
@@ -99,30 +124,36 @@ export default function AfkirIndexScreen() {
             </View>
 
             <View className="flex-1">
-                <FlatList
-                    data={displayedAfkirs}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => <AfkirCard afkir={item} />}
-                    contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
-                    }
-                    ListEmptyComponent={() => (
-                        <View className="flex-1 justify-center items-center py-20 mt-10">
-                            <View className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-                                <PackageOpen size={40} color="#9CA3AF" />
+                {isLoading ? (
+                    <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+                        {Array.from({ length: 5 }).map((_, i) => <View key={`sk-${i}`}>{renderSkeletonCard()}</View>)}
+                    </ScrollView>
+                ) : (
+                    <FlatList
+                        data={displayedAfkirs}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => <AfkirCard afkir={item} />}
+                        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
+                        }
+                        ListEmptyComponent={() => (
+                            <View className="flex-1 justify-center items-center py-20 mt-10">
+                                <View className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                                    <PackageOpen size={40} color="#9CA3AF" />
+                                </View>
+                                <Text className="text-xl font-bold text-gray-400 mb-2">Kosong</Text>
+                                <Text className="text-gray-400 text-center max-w-[250px]">
+                                    {activeTab === 'MASUK' ? 'Tidak ada kendaraan barang afkir di dalam area.' : 'Belum ada pencatatan penarikan barang afkir hari ini.'}
+                                </Text>
                             </View>
-                            <Text className="text-xl font-bold text-gray-400 mb-2">Kosong</Text>
-                            <Text className="text-gray-400 text-center max-w-[250px]">
-                                {activeTab === 'MASUK' ? 'Tidak ada kendaraan barang afkir di dalam area.' : 'Belum ada pencatatan penarikan barang afkir hari ini.'}
-                            </Text>
-                        </View>
-                    )}
-                />
+                        )}
+                    />
+                )}
             </View>
 
             {/* Floating Action Button */}
-            {activeTab === 'MASUK' && (
+            {activeTab === 'MASUK' && canCreate && (
                 <View className="absolute bottom-6 right-6 shadow-xl">
                     <Button
                         variant="default"

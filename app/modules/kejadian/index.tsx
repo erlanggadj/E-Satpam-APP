@@ -1,19 +1,25 @@
 import { LaporanKejadianCard } from '@/components/features/LaporanKejadianCard';
 import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { api } from '@/config/api';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useSyncStore } from '@/store/useSyncStore';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { ArrowLeft, CloudOff, Plus, Search } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
-import { FlatList, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function KejadianIndexScreen() {
     const router = useRouter();
+    const { user } = useAuthStore();
+    const canCreate = user?.role === 'ADMIN' || (user?.role === 'SATPAM' && user?.jabatan !== 'KAPAMWIL');
     const [searchQuery, setSearchQuery] = useState('');
-    const [refreshing, setRefreshing] = useState(false);
-
     const allItems = useSyncStore((state) => state.items);
+    const [refreshing, setRefreshing] = useState(false);
+    const hasFetchedOnce = React.useRef(allItems.filter(i => i.moduleId === 'kejadian').length > 0);
+    const [isLoading, setIsLoading] = useState(!hasFetchedOnce.current);
+
     const isToday = (dateStr: string) =>
         new Date(dateStr).toDateString() === new Date().toDateString();
 
@@ -25,6 +31,8 @@ export default function KejadianIndexScreen() {
             }
         } catch (error) {
             console.error('Failed to fetch kejadian data', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -60,6 +68,17 @@ export default function KejadianIndexScreen() {
         sync_status: item.sync_status || 0
     }));
 
+    const renderSkeletonCard = () => (
+        <View className="bg-white rounded-2xl p-4 mb-3 border border-gray-100 shadow-sm">
+            <View className="flex-row items-center mb-2">
+                <Skeleton width={44} height={20} borderRadius={10} style={{ marginRight: 10 }} />
+                <Skeleton width="60%" height={14} />
+            </View>
+            <Skeleton width="85%" height={12} style={{ marginBottom: 4 }} />
+            <Skeleton width="45%" height={11} />
+        </View>
+    );
+
     return (
         <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
             <Stack.Screen options={{ headerShown: false }} />
@@ -87,39 +106,47 @@ export default function KejadianIndexScreen() {
             </View>
 
             <View className="flex-1">
-                <FlatList
-                    data={mappedItems}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => <LaporanKejadianCard item={item} />}
-                    contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
-                    }
-                    ListEmptyComponent={() => (
-                        <View className="flex-1 justify-center items-center py-20 mt-10">
-                            <View className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-                                <CloudOff size={40} color="#9CA3AF" />
+                {isLoading ? (
+                    <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+                        {Array.from({ length: 5 }).map((_, i) => <View key={`sk-${i}`}>{renderSkeletonCard()}</View>)}
+                    </ScrollView>
+                ) : (
+                    <FlatList
+                        data={mappedItems}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => <LaporanKejadianCard item={item} />}
+                        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
+                        }
+                        ListEmptyComponent={() => (
+                            <View className="flex-1 justify-center items-center py-20 mt-10">
+                                <View className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                                    <CloudOff size={40} color="#9CA3AF" />
+                                </View>
+                                <Text className="text-xl font-bold text-gray-400 mb-2">Kosong</Text>
+                                <Text className="text-gray-400 text-center max-w-[250px]">
+                                    Belum ada riwayat laporan kejadian.
+                                </Text>
                             </View>
-                            <Text className="text-xl font-bold text-gray-400 mb-2">Kosong</Text>
-                            <Text className="text-gray-400 text-center max-w-[250px]">
-                                Belum ada riwayat laporan kejadian.
-                            </Text>
-                        </View>
-                    )}
-                />
+                        )}
+                    />
+                )}
             </View>
 
             {/* Floating Action Button */}
-            <View className="absolute bottom-6 right-6 shadow-xl">
-                <Button
-                    variant="default"
-                    size="icon"
-                    className="w-16 h-16 rounded-full shadow-lg items-center justify-center bg-[#ea580c]"
-                    onPress={() => router.push(`/modules/kejadian/create`)}
-                >
-                    <Plus size={32} color="white" />
-                </Button>
-            </View>
+            {canCreate && (
+                <View className="absolute bottom-6 right-6 shadow-xl">
+                    <Button
+                        variant="default"
+                        size="icon"
+                        className="w-16 h-16 rounded-full shadow-lg items-center justify-center bg-[#ea580c]"
+                        onPress={() => router.push(`/modules/kejadian/create`)}
+                    >
+                        <Plus size={32} color="white" />
+                    </Button>
+                </View>
+            )}
         </SafeAreaView>
     );
 }

@@ -1,9 +1,12 @@
-import { useRouter } from 'expo-router';
+import { api } from '@/config/api';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
     AlertCircle,
     CheckCircle2,
     ChevronRight,
     Clock,
+    FileText,
     Filter,
     Key,
     Search,
@@ -11,7 +14,7 @@ import {
     User,
     X
 } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -24,100 +27,68 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// --- TYPES ---
-type LogType = 'CONTAINER' | 'KEY' | 'VISITOR';
-type LogStatus = 'COMPLETED' | 'CANCELLED';
-type ValidationStatus = 'PENDING' | 'VALIDATED';
-type UserRole = 'SECURITY' | 'MANAGER';
-
-interface HistoryItem {
-    id: string;
-    type: LogType;
-    title: string;
-    description: string;
-    timestamp: string;
-    status: LogStatus;
-    validationStatus: ValidationStatus;
-    validatedBy?: string;
-}
-
-// --- MOCK DATA GENERATOR ---
-const generateMockData = (): HistoryItem[] => {
-    const items: HistoryItem[] = [];
-    const types: LogType[] = ['CONTAINER', 'KEY', 'VISITOR'];
-    const statuses: LogStatus[] = ['COMPLETED', 'CANCELLED'];
-
-    const now = new Date();
-
-    for (let i = 1; i <= 100; i++) {
-        const type = types[Math.floor(Math.random() * types.length)];
-        const isPending = Math.random() > 0.6; // 40% chance pending
-
-        const randomTimeOffsets = Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000);
-        const itemDate = new Date(now.getTime() - randomTimeOffsets);
-
-        let title = '';
-        let description = '';
-
-        if (type === 'CONTAINER') {
-            title = `Kontainer Keluar: BE ${Math.floor(Math.random() * 9000) + 1000} CD`;
-            description = `Supir: Junaidi, Vendor: PT. Logistik Makmur`;
-        } else if (type === 'KEY') {
-            title = `Ambil Kunci: Ruang Server`;
-            description = `Nama: Budi Santoso, Divisi: IT Maintenance`;
-        } else {
-            title = `Tamu Baru: Bapak Anton`;
-            description = `Tujuan: Meeting Internal Direksi`;
-        }
-
-        items.push({
-            id: `log-${String(i).padStart(4, '0')}`,
-            type,
-            title,
-            description,
-            timestamp: itemDate.toISOString(),
-            status: statuses[Math.floor(Math.random() * statuses.length)],
-            validationStatus: isPending ? 'PENDING' : 'VALIDATED',
-            validatedBy: isPending ? undefined : 'Manager Satpam',
-        });
-    }
-
-    return items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-};
-
 const ITEMS_PER_PAGE = 15;
-const ALL_MOCK_DATA = generateMockData();
 
 export default function GlobalHistoryScreen() {
     const router = useRouter();
 
+    const { user } = useAuthStore();
+    const canApprove = user?.role === 'ADMIN' || user?.role === 'SUPERVISOR' || user?.jabatan === 'KAPAMWIL';
+
     // State
-    const [userRole, setUserRole] = useState<UserRole>('SECURITY');
-    const [allData, setAllData] = useState<HistoryItem[]>(ALL_MOCK_DATA);
-    const [displayData, setDisplayData] = useState<HistoryItem[]>([]);
+    const [allData, setAllData] = useState<any[]>([]);
+    const [displayData, setDisplayData] = useState<any[]>([]);
     const [page, setPage] = useState(1);
+    const [isLoading, setIsLoading] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeValidation, setActiveValidation] = useState<'ALL' | ValidationStatus>('ALL');
+    const [activeValidation, setActiveValidation] = useState<'ALL' | 'PENDING' | 'VALIDATED'>('ALL');
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('Semua');
     const [selectedDate, setSelectedDate] = useState('Hari Ini');
 
+    // Fetch from real API
+    const fetchHistory = async () => {
+        try {
+            setIsLoading(true);
+            const res = await api.get('/history?limit=100');
+            if (res.data?.data) {
+                setAllData(res.data.data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch history', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchHistory();
+        }, [])
+    );
+
     // Filter Logic
     const filteredData = useMemo(() => {
         return allData.filter(item => {
-            const matchValidation = activeValidation === 'ALL' || item.validationStatus === activeValidation;
-            const matchSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                item.description.toLowerCase().includes(searchQuery.toLowerCase());
-            return matchValidation && matchSearch;
+            const isItemValidated = item.status === 'APPROVED';
+            const itemValidationStatus = isItemValidated ? 'VALIDATED' : 'PENDING';
+            const matchValidation = activeValidation === 'ALL' || itemValidationStatus === activeValidation;
+            const matchSearch = (item.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (item.module || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+            // Category filter logic can be extended here if needed based on selectedCategory
+            const matchCategory = selectedCategory === 'Semua' || (item.module && item.module.toLowerCase().includes(selectedCategory.toLowerCase()));
+
+            return matchValidation && matchSearch && matchCategory;
         });
-    }, [allData, activeValidation, searchQuery]);
+    }, [allData, activeValidation, searchQuery, selectedCategory]);
 
     // Initial Load & Filter Change
-    useEffect(() => {
+    React.useEffect(() => {
         setPage(1);
         setDisplayData(filteredData.slice(0, ITEMS_PER_PAGE));
     }, [filteredData]);
@@ -135,13 +106,10 @@ export default function GlobalHistoryScreen() {
         }, 800);
     };
 
-    const handleRefresh = () => {
+    const handleRefresh = async () => {
         setRefreshing(true);
-        setTimeout(() => {
-            setPage(1);
-            setDisplayData(filteredData.slice(0, ITEMS_PER_PAGE));
-            setRefreshing(false);
-        }, 1000);
+        await fetchHistory();
+        setRefreshing(false);
     };
 
     const formatTime = (isoString: string) => {
@@ -154,22 +122,40 @@ export default function GlobalHistoryScreen() {
         return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
-    const getIconInfo = (type: LogType) => {
-        switch (type) {
-            case 'CONTAINER': return { icon: Truck, color: '#f59e0b', bg: 'bg-amber-100' };
-            case 'KEY': return { icon: Key, color: '#3b82f6', bg: 'bg-blue-100' };
-            case 'VISITOR': return { icon: User, color: '#10b981', bg: 'bg-emerald-100' };
+    const getIconInfo = (moduleName: string) => {
+        switch (moduleName) {
+            case 'container': return { icon: Truck, color: '#f59e0b', bg: 'bg-amber-100', name: 'Kontainer' };
+            case 'keylog': return { icon: Key, color: '#3b82f6', bg: 'bg-blue-100', name: 'Kunci' };
+            case 'tamu': return { icon: User, color: '#10b981', bg: 'bg-emerald-100', name: 'Tamu' };
+            default: return { icon: FileText, color: '#6366f1', bg: 'bg-indigo-100', name: moduleName || 'Modul' };
         }
     };
 
-    const renderCompactCard = ({ item }: { item: HistoryItem }) => {
-        const { icon: Icon, color, bg } = getIconInfo(item.type);
-        const isPending = item.validationStatus === 'PENDING';
+    const handleCardPress = (item: any) => {
+        switch (item.module) {
+            case 'mutasi':
+                router.push({ pathname: `/modules/mutasi/${item.id}/detail` as any, params: { source: 'history', title: item.title } });
+                break;
+            case 'keylog':
+                router.push({ pathname: `/modules/keylog/${item.id}/detail` as any, params: { source: 'history', title: item.title } });
+                break;
+            case 'tamu':
+                router.push({ pathname: `/modules/tamu/detail`, params: { itemId: item.id, source: 'history', title: item.title } } as any);
+                break;
+            default:
+                router.push({ pathname: `/modules/${item.module}/${item.id}/detail` as any, params: { source: 'history', title: item.title } });
+                break;
+        }
+    };
+
+    const renderCompactCard = ({ item }: { item: any }) => {
+        const { icon: Icon, color, bg, name } = getIconInfo(item.module);
+        const isPending = item.status !== 'APPROVED';
 
         return (
             <TouchableOpacity
-                className="bg-white px-4 py-3 mb-2 rounded-xl border border-gray-100 flex-row items-center shadow-sm"
-                onPress={() => router.push('/riwayat/detail')}
+                className={`px-4 py-3 mb-2 rounded-xl border flex-row items-center shadow-sm bg-white border-gray-100`}
+                onPress={() => handleCardPress(item)}
                 activeOpacity={0.7}
             >
                 <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${bg}`}>
@@ -178,10 +164,10 @@ export default function GlobalHistoryScreen() {
 
                 <View className="flex-1 justify-center">
                     <Text className="text-slate-800 text-[14px] font-bold tracking-tight mb-0.5" numberOfLines={1}>
-                        {item.title}
+                        {item.title || 'Tidak Ada Judul'}
                     </Text>
-                    <Text className="text-slate-500 text-[11px] font-medium">
-                        {formatDate(item.timestamp)} • {formatTime(item.timestamp)}
+                    <Text className="text-slate-500 text-[11px] font-medium uppercase">
+                        {name} • {formatDate(item.createdAt)} {formatTime(item.createdAt)}
                     </Text>
                 </View>
 
@@ -189,7 +175,7 @@ export default function GlobalHistoryScreen() {
                     {isPending ? (
                         <View className="bg-orange-50 border border-orange-200 px-2 py-1 rounded flex-row items-center mr-2">
                             <Clock size={10} color="#ea580c" className="mr-1" />
-                            <Text className="text-orange-700 text-[9px] font-bold uppercase tracking-widest">Pending</Text>
+                            <Text className="text-orange-700 text-[9px] font-bold uppercase tracking-widest">Proses</Text>
                         </View>
                     ) : (
                         <View className="bg-emerald-50 border border-emerald-200 px-2 py-1 rounded flex-row items-center mr-2">
@@ -267,11 +253,28 @@ export default function GlobalHistoryScreen() {
         </Modal>
     );
 
-    const pendingCount = useMemo(() => allData.filter(i => i.validationStatus === 'PENDING').length, [allData]);
+    const pendingCount = useMemo(() => allData.filter(i => i.status !== 'APPROVED').length, [allData]);
     const todayCount = useMemo(() => {
         const todayStr = new Date().toDateString();
-        return allData.filter(i => new Date(i.timestamp).toDateString() === todayStr).length;
+        return allData.filter(i => new Date(i.createdAt).toDateString() === todayStr).length;
     }, [allData]);
+
+    const renderSkeleton = () => (
+        <View className="px-4 py-3 mb-2 rounded-xl border border-gray-100 flex-row items-center bg-white opacity-60">
+            <View className="w-10 h-10 rounded-full bg-slate-200 mr-3" />
+            <View className="flex-1 justify-center">
+                <View className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
+                <View className="h-3 bg-slate-200 rounded w-1/2" />
+            </View>
+            <View className="ml-2 w-16 h-6 bg-slate-200 rounded" />
+        </View>
+    );
+
+    const renderSkeletons = () => (
+        <View className="pt-2">
+            {Array.from({ length: 8 }).map((_, i) => <View key={`skel-${i}`}>{renderSkeleton()}</View>)}
+        </View>
+    );
 
     return (
         <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
@@ -281,11 +284,10 @@ export default function GlobalHistoryScreen() {
                     <Text className="text-[22px] font-bold text-slate-800 tracking-tight">Activity History</Text>
                     <TouchableOpacity
                         className="bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 flex-row items-center"
-                        onPress={() => setUserRole(prev => prev === 'SECURITY' ? 'MANAGER' : 'SECURITY')}
                     >
                         <User size={12} color="#64748b" className="mr-1.5" />
                         <Text className="text-slate-600 text-[10px] font-bold tracking-widest uppercase">
-                            View: {userRole}
+                            View: {user?.jabatan || 'Anggota'}
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -345,31 +347,37 @@ export default function GlobalHistoryScreen() {
                 </ScrollView>
             </View>
 
-            <FlatList
-                data={displayData}
-                keyExtractor={(item) => item.id}
-                renderItem={renderCompactCard}
-                contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-                showsVerticalScrollIndicator={false}
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                onEndReached={loadMoreData}
-                onEndReachedThreshold={0.5}
-                ListFooterComponent={
-                    isLoadingMore ? (
-                        <View className="py-4 items-center justify-center">
-                            <ActivityIndicator size="small" color="#94a3b8" />
+            {isLoading && allData.length === 0 ? (
+                <ScrollView contentContainerStyle={{ padding: 16 }}>
+                    {renderSkeletons()}
+                </ScrollView>
+            ) : (
+                <FlatList
+                    data={displayData}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderCompactCard}
+                    contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+                    showsVerticalScrollIndicator={false}
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                    onEndReached={loadMoreData}
+                    onEndReachedThreshold={0.5}
+                    ListFooterComponent={
+                        isLoadingMore ? (
+                            <View className="py-4 items-center justify-center">
+                                <ActivityIndicator size="small" color="#94a3b8" />
+                            </View>
+                        ) : null
+                    }
+                    ListEmptyComponent={
+                        <View className="py-20 items-center justify-center">
+                            <AlertCircle size={40} color="#cbd5e1" className="mb-4" />
+                            <Text className="text-slate-400 font-bold text-[16px]">Data Tidak Ditemukan</Text>
+                            <Text className="text-slate-400 text-[12px] mt-1">Coba ubah kata kunci atau filter Anda.</Text>
                         </View>
-                    ) : null
-                }
-                ListEmptyComponent={
-                    <View className="py-20 items-center justify-center">
-                        <AlertCircle size={40} color="#cbd5e1" className="mb-4" />
-                        <Text className="text-slate-400 font-bold text-[16px]">Data Tidak Ditemukan</Text>
-                        <Text className="text-slate-400 text-[12px] mt-1">Coba ubah kata kunci atau filter Anda.</Text>
-                    </View>
-                }
-            />
+                    }
+                />
+            )}
 
             {renderFilterModal()}
 

@@ -1,7 +1,10 @@
+import { Skeleton } from '@/components/ui/Skeleton';
+import { api } from '@/config/api';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useModuleStore } from '@/store/useModuleStore';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Clock, Info, UserCheck, UserMinus } from 'lucide-react-native';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,9 +13,51 @@ export default function KeyLogDetailScreen() {
     const { keyId } = useLocalSearchParams<{ keyId: string }>();
 
     const allKeys = useModuleStore((state) => state.keys);
-    const keyData = allKeys.find(k => k.id === keyId);
+    const keyData = allKeys.find(k => String(k.id) === String(keyId));
 
-    if (!keyData) {
+    const { user } = useAuthStore();
+    const [fetchedRecord, setFetchedRecord] = useState<any>(null);
+    const [isLoadingFetch, setIsLoadingFetch] = useState(false);
+    const [isApproving, setIsApproving] = useState(false);
+
+    useEffect(() => {
+        if (!keyData && keyId) {
+            setIsLoadingFetch(true);
+            api.get(`/keylog/${keyId}`).then(res => {
+                const data = res.data.data;
+                setFetchedRecord(data);
+                useModuleStore.getState().upsertRecord('keys', data);
+                setIsLoadingFetch(false);
+            }).catch(err => {
+                console.error(err);
+                setIsLoadingFetch(false);
+            });
+        }
+    }, [keyData, keyId]);
+
+    const activeItem = keyData || fetchedRecord;
+
+    const source = (useLocalSearchParams() as any)?.source;
+    const canApprove = source === 'history' && (user?.role === 'ADMIN' || user?.role === 'SUPERVISOR' || user?.jabatan === 'KAPAMWIL') && (activeItem as any)?.status !== 'APPROVED';
+
+    const handleApprove = async () => {
+        try {
+            setIsApproving(true);
+            await api.patch(`/history/keylog/${keyId}/approve`);
+            useModuleStore.getState().approveRecord('keys', keyId as string);
+            // @ts-ignore
+            if (typeof global !== 'undefined' && global.alert) global.alert('Laporan berhasil divalidasi');
+            router.back();
+        } catch (error) {
+            console.error('Failed to validate', error);
+        } finally {
+            setIsApproving(false);
+        }
+    };
+
+    // Remove early loading return to keep header visible
+
+    if (!activeItem && !isLoadingFetch) {
         return (
             <SafeAreaView className="flex-1 bg-slate-50 justify-center items-center">
                 <Text className="text-slate-500 font-medium">Data kunci tidak ditemukan.</Text>
@@ -55,29 +100,48 @@ export default function KeyLogDetailScreen() {
                         </View>
                     </View>
 
-                    <View className="mb-5">
-                        <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Nama Kunci</Text>
-                        <Text className="text-[15px] text-slate-800 font-bold">{keyData.keyName}</Text>
-                    </View>
-                    <View className="mb-5">
-                        <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Penyerah (Penitip)</Text>
-                        <Text className="text-[15px] text-slate-800 font-medium">{keyData.depositorName}</Text>
-                    </View>
-                    <View className="mb-5">
-                        <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Bagian/Divisi Penyerah</Text>
-                        <Text className="text-[15px] text-slate-800 font-medium">{keyData.depositorDivision}</Text>
-                    </View>
-                    <View className="mb-2">
-                        <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Waktu Titip</Text>
-                        <View className="flex-row items-center">
-                            <Clock size={14} color="#64748b" style={{ marginRight: 6 }} />
-                            <Text className="text-[15px] text-slate-800 font-medium">{formatDateTime(keyData.depositTime)}</Text>
+                    {isLoadingFetch ? (
+                        <View>
+                            {[1, 2, 3, 4].map(i => (
+                                <View key={i} className="mb-4 pb-4 border-b border-slate-100 last:border-0">
+                                    <Skeleton width="30%" height={12} style={{ marginBottom: 8 }} />
+                                    <Skeleton width="100%" height={16} />
+                                </View>
+                            ))}
                         </View>
-                    </View>
+                    ) : (
+                        <>
+                            <View className="mb-5">
+                                <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Nama Kunci</Text>
+                                <Text className="text-[15px] text-slate-800 font-bold">{activeItem.keyName}</Text>
+                            </View>
+                            <View className="mb-5">
+                                <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Penyerah (Penitip)</Text>
+                                <Text className="text-[15px] text-slate-800 font-medium">{activeItem.depositorName}</Text>
+                            </View>
+                            <View className="mb-5">
+                                <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Bagian/Divisi Penyerah</Text>
+                                <Text className="text-[15px] text-slate-800 font-medium">{activeItem.depositorDivision}</Text>
+                            </View>
+                            <View className="mb-2">
+                                <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Waktu Titip</Text>
+                                <View className="flex-row items-center">
+                                    <Clock size={14} color="#64748b" style={{ marginRight: 6 }} />
+                                    <Text className="text-[15px] text-slate-800 font-medium">{formatDateTime(activeItem.depositTime)}</Text>
+                                </View>
+                            </View>
+                        </>
+                    )}
                 </View>
 
                 {/* 2. Detail Pengambilan (Hanya munul jika status TAKEN) */}
-                {keyData.status === 'TAKEN' ? (
+                {isLoadingFetch ? (
+                    <View className="bg-white rounded-2xl p-5 mb-5 shadow-sm border border-slate-100">
+                        <Skeleton width="40%" height={16} style={{ marginBottom: 15 }} />
+                        <Skeleton width="100%" height={40} style={{ marginBottom: 15 }} />
+                        <Skeleton width="100%" height={40} />
+                    </View>
+                ) : activeItem.status === 'TAKEN' ? (
                     <View className="bg-white rounded-2xl p-5 mb-5 shadow-sm border border-emerald-100">
                         <View className="flex-row items-center justify-between mb-6">
                             <View className="flex-row items-center">
@@ -91,21 +155,21 @@ export default function KeyLogDetailScreen() {
 
                         <View className="mb-5">
                             <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Pengambil</Text>
-                            <Text className="text-[15px] text-slate-800 font-medium">{keyData.takerName}</Text>
+                            <Text className="text-[15px] text-slate-800 font-medium">{activeItem.takerName}</Text>
                         </View>
                         <View className="mb-5">
                             <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Bagian/Divisi Pengambil</Text>
-                            <Text className="text-[15px] text-slate-800 font-medium">{keyData.takerDivision}</Text>
+                            <Text className="text-[15px] text-slate-800 font-medium">{activeItem.takerDivision}</Text>
                         </View>
                         <View className="mb-5">
                             <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Keterangan</Text>
-                            <Text className="text-[15px] text-slate-800 font-medium">{keyData.keterangan || '-'}</Text>
+                            <Text className="text-[15px] text-slate-800 font-medium">{activeItem.keterangan || '-'}</Text>
                         </View>
                         <View className="mb-2">
                             <Text className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-1 mb-2 uppercase tracking-wider">Waktu Ambil</Text>
                             <View className="flex-row items-center">
                                 <Clock size={14} color="#64748b" style={{ marginRight: 6 }} />
-                                <Text className="text-[15px] text-slate-800 font-medium">{formatDateTime(keyData.takeTime)}</Text>
+                                <Text className="text-[15px] text-slate-800 font-medium">{formatDateTime(activeItem.takeTime)}</Text>
                             </View>
                         </View>
                     </View>
@@ -117,6 +181,21 @@ export default function KeyLogDetailScreen() {
                 )}
 
             </ScrollView>
+
+            {/* Approval Button for KAPAMWIL */}
+            {canApprove && (
+                <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 pt-4 pb-6 shadow-[0_-4px_6px_rgba(0,0,0,0.05)]">
+                    <TouchableOpacity
+                        className={`w-full ${isApproving ? 'bg-emerald-300' : 'bg-orange-500'} py-4 rounded-xl items-center justify-center shadow-sm`}
+                        onPress={handleApprove}
+                        disabled={isApproving}
+                    >
+                        <Text className="text-white font-bold tracking-wide text-[14px]">
+                            {isApproving ? 'MEMPROSES...' : 'VALIDASI / APPROVE'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </SafeAreaView>
     );
 }

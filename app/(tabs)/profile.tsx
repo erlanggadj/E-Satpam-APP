@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter } from 'expo-router';
 import { BellRing, ChevronRight, LogOut, Settings, ShieldAlert } from 'lucide-react-native';
 import React from 'react';
@@ -6,10 +7,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 export default function ProfileScreen() {
     const insets = useSafeAreaInsets();
+    const { user, logout } = useAuthStore();
     const router = useRouter();
 
-    const handleLogout = () => {
-        // Clear navigation stack and redirect to login
+    const handleLogout = async () => {
+        await logout();
         router.replace('/(auth)/login');
     };
 
@@ -38,10 +40,10 @@ export default function ProfileScreen() {
 
                     <View className="flex-1">
                         <Text className="text-[#0f172a] text-[18px] font-bold tracking-tight mb-1">
-                            ALIF BATANG
+                            {user?.name || 'Loading...'}
                         </Text>
                         <Text className="text-gray-500 text-[13px] font-medium mb-2">
-                            Anggota Satpam
+                            {user?.jabatan || 'Anggota Satpam'}
                         </Text>
                         <View className="flex-row items-center">
                             <View className="bg-[#10B981]/10 px-2 py-1 rounded-md">

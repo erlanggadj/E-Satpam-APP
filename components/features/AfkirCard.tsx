@@ -1,5 +1,6 @@
 import { SyncBadge } from '@/components/ui/SyncBadge';
 import { syncAllPendingData } from '@/hooks/useBackgroundSync';
+import { useAuthStore } from '@/store/useAuthStore';
 import { AfkirRecord, useModuleStore } from '@/store/useModuleStore';
 import { useRouter } from 'expo-router';
 import { ArrowRightCircle, CheckCircle2, Clock, PackageOpen } from 'lucide-react-native';
@@ -13,6 +14,8 @@ interface AfkirCardProps {
 export function AfkirCard({ afkir }: AfkirCardProps) {
     const router = useRouter();
     const checkoutAfkir = useModuleStore(state => state.checkoutAfkir);
+    const user = useAuthStore(state => state.user);
+    const canCreate = user?.jabatan !== 'KAPAMWIL';
     const isNavigating = React.useRef(false);
 
     const handleDetailPress = () => {
@@ -102,7 +105,8 @@ export function AfkirCard({ afkir }: AfkirCardProps) {
                 </View>
 
                 {/* Action Button */}
-                {afkir.status === 'IN' && (
+                {afkir.status === 'IN' && canCreate && (
+
                     <TouchableOpacity
                         className="mt-3 py-2.5 px-4 rounded-xl border border-indigo-500 bg-indigo-50 flex-row justify-center items-center active:bg-indigo-100"
                         activeOpacity={0.8}

@@ -1,4 +1,5 @@
 import { SyncBadge } from '@/components/ui/SyncBadge';
+import { useAuthStore } from '@/store/useAuthStore';
 import { ContainerRecord } from '@/store/useModuleStore';
 import { useRouter } from 'expo-router';
 import { ArrowRightCircle, CheckCircle2, Clock, Truck } from 'lucide-react-native';
@@ -11,6 +12,8 @@ interface ContainerCardProps {
 
 export function ContainerCard({ container }: ContainerCardProps) {
     const router = useRouter();
+    const user = useAuthStore(state => state.user);
+    const canCreate = user?.jabatan !== 'KAPAMWIL';
     const isNavigating = React.useRef(false);
 
     const handleDetailPress = () => {
@@ -88,7 +91,8 @@ export function ContainerCard({ container }: ContainerCardProps) {
                 </View>
 
                 {/* Action Button - Only show if actively IN. Nested logic is safe here. */}
-                {container.status === 'IN' && (
+                {container.status === 'IN' && canCreate && (
+
                     <TouchableOpacity
                         className="mt-3 py-2.5 px-4 rounded-xl border border-orange-500 bg-orange-50 flex-row justify-center items-center active:bg-orange-100"
                         activeOpacity={0.8}

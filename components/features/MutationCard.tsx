@@ -1,4 +1,5 @@
 import { SyncBadge } from '@/components/ui/SyncBadge';
+import { syncAllPendingData } from '@/hooks/useBackgroundSync';
 import { useAuthStore } from '@/store/useAuthStore';
 import { MutasiRecord, useModuleStore } from '@/store/useModuleStore';
 import { useRouter } from 'expo-router';
@@ -41,6 +42,7 @@ export function MutationCard({ mutation, onAfterSubmit }: MutationCardProps) {
         // Menghindari force close karena node UI hilang saat masih ditekan
         setTimeout(() => {
             submitMutation(mutation.id);
+            syncAllPendingData(); // FIX: Langsung call API saat disubmit
             onAfterSubmit?.();
         }, 300);
     };
@@ -50,6 +52,7 @@ export function MutationCard({ mutation, onAfterSubmit }: MutationCardProps) {
     };
 
     const isActive = mutation.status === 'ACTIVE';
+    const canCreate = user?.jabatan !== 'KAPAMWIL';
 
     return (
         <>
@@ -68,17 +71,19 @@ export function MutationCard({ mutation, onAfterSubmit }: MutationCardProps) {
                                 <Text className="text-slate-500 text-[12px] font-medium mt-0.5">{mutation.shiftName} • {formatDate(mutation.date)}</Text>
                             </View>
                         </View>
-                        {isActive ? (
+                        {mutation.sync_status === 0 ? (
+                            <SyncBadge status={0} business_status={mutation.status} moduleType="MUTASI" />
+                        ) : isActive ? (
                             <View className="bg-blue-50 px-2 py-1 rounded border border-blue-100">
                                 <Text className="text-blue-600 text-[10px] font-bold uppercase tracking-widest">Shift Aktif</Text>
                             </View>
                         ) : (
-                            <SyncBadge status={mutation.sync_status || 0} business_status={mutation.status} moduleType="MUTASI" />
+                            <SyncBadge status={1} business_status={mutation.status} moduleType="MUTASI" />
                         )}
                     </View>
                 </TouchableOpacity>
 
-                {isActive ? (
+                {isActive && canCreate ? (
                     <View className="flex-row space-x-3 gap-3 border-t border-slate-100 pt-3 mt-1">
                         <TouchableOpacity
                             className="flex-1 bg-white border border-orange-500 py-2.5 rounded-xl flex-row items-center justify-center active:bg-orange-50"

@@ -1,36 +1,45 @@
 import { TamuCard } from '@/components/features/TamuCard';
 import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Text as CustomText } from '@/components/ui/Text';
 import { api } from '@/config/api';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useSyncStore } from '@/store/useSyncStore';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { ArrowLeft, CloudOff, Plus, Search } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
-import { FlatList, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function TamuHistoryScreen() {
     const router = useRouter();
     const moduleId = 'tamu';
-
-    const [searchQuery, setSearchQuery] = useState('');
-    const [refreshing, setRefreshing] = useState(false);
+    const { user } = useAuthStore();
+    const canCreate = user?.role === 'ADMIN' || (user?.role === 'SATPAM' && user?.jabatan !== 'KAPAMWIL');
 
     // Generic fallback state
     const allItems = useSyncStore((state) => state.items);
     const genericItems = allItems.filter((i) => i.moduleId === moduleId);
+
+    const [searchQuery, setSearchQuery] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
+    const hasFetchedOnce = React.useRef(genericItems.length > 0);
+    const [isLoading, setIsLoading] = useState(!hasFetchedOnce.current);
+
 
     const title = 'Tamu';
 
     // Fetch from server on mount/focus
     const fetchServerData = async () => {
         try {
-            const res = await api.get('/tamu'); // ?history=false defaults to today as per PRD
+            const res = await api.get('/tamu');
             if (res.data?.success && Array.isArray(res.data?.data)) {
                 useSyncStore.getState().syncServerData('tamu', res.data.data);
             }
         } catch (error) {
             console.error('Failed to fetch tamu data', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -61,6 +70,21 @@ export default function TamuHistoryScreen() {
         return itemTitle.includes(searchLower) || JSON.stringify(item.data).toLowerCase().includes(searchLower);
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+    const renderSkeletonCard = () => (
+        <View className="bg-white rounded-2xl p-4 mb-3 border border-gray-100 shadow-sm">
+            <View className="flex-row items-center mb-3">
+                <Skeleton width={40} height={40} borderRadius={20} />
+                <View className="ml-3 flex-1">
+                    <Skeleton width="50%" height={14} style={{ marginBottom: 6 }} />
+                    <Skeleton width="35%" height={11} />
+                </View>
+                <Skeleton width={60} height={22} borderRadius={11} />
+            </View>
+            <Skeleton width="90%" height={12} style={{ marginBottom: 4 }} />
+            <Skeleton width="60%" height={12} />
+        </View>
+    );
+
     return (
         <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
             <Stack.Screen options={{ headerShown: false }} />
@@ -89,41 +113,49 @@ export default function TamuHistoryScreen() {
                     </View>
                 </View>
 
-                <FlatList
-                    data={listData}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => <TamuCard item={item} />}
-                    contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
-                    }
-                    ListEmptyComponent={() => (
-                        <View className="flex-1 justify-center items-center py-20 mt-10">
-                            <View className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-                                <CloudOff size={40} color="#9CA3AF" />
+                {isLoading ? (
+                    <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+                        {Array.from({ length: 5 }).map((_, i) => <View key={`sk-${i}`}>{renderSkeletonCard()}</View>)}
+                    </ScrollView>
+                ) : (
+                    <FlatList
+                        data={listData}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => <TamuCard item={item} />}
+                        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
+                        }
+                        ListEmptyComponent={() => (
+                            <View className="flex-1 justify-center items-center py-20 mt-10">
+                                <View className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                                    <CloudOff size={40} color="#9CA3AF" />
+                                </View>
+                                <Text className="text-xl font-bold text-gray-400 mb-2">Kosong</Text>
+                                <Text className="text-gray-400 text-center max-w-[250px]">
+                                    {searchQuery.length > 0
+                                        ? `Tidak ditemukan data untuk "${searchQuery}".`
+                                        : `Belum ada data riwayat untuk modul ini.`}
+                                </Text>
                             </View>
-                            <Text className="text-xl font-bold text-gray-400 mb-2">Kosong</Text>
-                            <Text className="text-gray-400 text-center max-w-[250px]">
-                                {searchQuery.length > 0
-                                    ? `Tidak ditemukan data untuk "${searchQuery}".`
-                                    : `Belum ada data riwayat untuk modul ini.`}
-                            </Text>
-                        </View>
-                    )}
-                />
+                        )}
+                    />
+                )}
             </View>
 
             {/* Floating Action Button */}
-            <View className="absolute bottom-6 right-6 shadow-xl">
-                <Button
-                    variant="default"
-                    size="icon"
-                    className="w-16 h-16 rounded-full shadow-lg items-center justify-center bg-[#ea580c]"
-                    onPress={() => router.push(`/modules/${moduleId}/create` as any)}
-                >
-                    <Plus size={32} color="white" />
-                </Button>
-            </View>
+            {canCreate && (
+                <View className="absolute bottom-6 right-6 shadow-xl">
+                    <Button
+                        variant="default"
+                        size="icon"
+                        className="w-16 h-16 rounded-full shadow-lg items-center justify-center bg-[#ea580c]"
+                        onPress={() => router.push(`/modules/${moduleId}/create` as any)}
+                    >
+                        <Plus size={32} color="white" />
+                    </Button>
+                </View>
+            )}
         </SafeAreaView>
     );
 }

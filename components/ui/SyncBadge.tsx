@@ -16,7 +16,7 @@ export function SyncBadge({ status, business_status, moduleType = 'GENERIC' }: S
 
     let colorClass = 'bg-amber-50 border-amber-100';
     let textColorClass = 'text-amber-600';
-    let label = 'PENDING';
+    let label = 'MENGIRIM...';
     let isBlue = false;
 
     if (!isPending) {
